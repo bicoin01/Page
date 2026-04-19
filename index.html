@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Bradicoin Reserve Fund | Futuristic Dashboard</title>
+  <title>Bradicoin Reserve Fund | BRD Token | Futuristic Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
@@ -16,11 +16,14 @@
       padding: 1.5rem;
       letter-spacing: 0.5px;
     }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0c1a; }
+    ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 8px; }
     .container { max-width: 1400px; margin: 0 auto; }
     
-    /* Neon Glow Effects */
+    /* Neon Components */
     .neon-card {
-      background: rgba(8, 12, 26, 0.75);
+      background: rgba(8, 12, 26, 0.85);
       backdrop-filter: blur(12px);
       border-radius: 2rem;
       border: 1px solid #a855f7;
@@ -28,11 +31,7 @@
       padding: 1.5rem;
       transition: all 0.3s ease;
     }
-    .neon-card:hover {
-      border-color: #00f2ff;
-      box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
-      transform: translateY(-3px);
-    }
+    .neon-card:hover { border-color: #00f2ff; box-shadow: 0 0 30px rgba(0, 242, 255, 0.4); transform: translateY(-3px); }
     
     .cyber-btn {
       background: rgba(0,0,0,0.6);
@@ -48,16 +47,8 @@
       align-items: center;
       gap: 8px;
     }
-    .cyber-btn:hover {
-      background: #a855f7;
-      border-color: #00f2ff;
-      box-shadow: 0 0 15px #a855f7;
-      transform: translateY(-2px);
-    }
-    .cyber-btn.primary {
-      background: linear-gradient(95deg, #a855f7, #3b82f6);
-      border: none;
-    }
+    .cyber-btn:hover { background: #a855f7; border-color: #00f2ff; box-shadow: 0 0 15px #a855f7; transform: translateY(-2px); }
+    .cyber-btn.primary { background: linear-gradient(95deg, #a855f7, #3b82f6); border: none; }
     
     .cyber-input {
       background: #010518;
@@ -69,26 +60,13 @@
       width: 100%;
       outline: none;
     }
-    .cyber-input:focus {
-      border-color: #00f2ff;
-      box-shadow: 0 0 10px #00f2ff;
-    }
+    .cyber-input:focus { border-color: #00f2ff; box-shadow: 0 0 10px #00f2ff; }
     
     /* Auth Pages */
-    .auth-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 80vh;
-    }
-    .auth-box {
-      max-width: 450px;
-      width: 100%;
-      text-align: center;
-    }
+    .auth-container { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
+    .auth-box { max-width: 450px; width: 100%; text-align: center; }
     .logo-large {
-      width: 100px;
-      height: 100px;
+      width: 100px; height: 100px;
       background: linear-gradient(135deg, #a855f7, #00f2ff);
       border-radius: 2rem;
       display: flex;
@@ -100,134 +78,74 @@
     }
     
     /* Dashboard Grid */
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-    }
-    
-    .staking-timer {
-      font-size: 0.75rem;
-      color: #00f2ff;
-      text-align: center;
-      margin-top: 0.5rem;
-    }
-    .progress-bar {
-      background: #1a1f30;
-      border-radius: 1rem;
-      height: 8px;
-      overflow: hidden;
-      margin: 0.5rem 0;
-    }
-    .progress-fill {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #a855f7, #00f2ff);
-      transition: width 0.3s;
-    }
-    .balance-amount {
-      font-size: 2.5rem;
-      font-weight: 800;
-      color: #00f2ff;
-      text-shadow: 0 0 10px #00f2ff;
-    }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+    .staking-timer { font-size: 0.75rem; color: #00f2ff; text-align: center; margin-top: 0.5rem; }
+    .progress-bar { background: #1a1f30; border-radius: 1rem; height: 8px; overflow: hidden; margin: 0.5rem 0; }
+    .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #a855f7, #00f2ff); transition: width 0.3s; }
+    .balance-amount { font-size: 2.5rem; font-weight: 800; color: #00f2ff; text-shadow: 0 0 10px #00f2ff; word-break: break-all; }
     .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      padding: 1rem 1.5rem;
-      background: rgba(12,20,35,0.7);
-      backdrop-filter: blur(12px);
-      border-radius: 2rem;
-      border: 1px solid #a855f7;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+      gap: 1rem; margin-bottom: 2rem; padding: 1rem 1.5rem;
+      background: rgba(12,20,35,0.7); backdrop-filter: blur(12px);
+      border-radius: 2rem; border: 1px solid #a855f7;
     }
     .lang-selector {
-      background: #0f1422dd;
-      border: 1px solid #a855f7;
-      border-radius: 2rem;
-      padding: 0.5rem;
-      font-family: 'Orbitron', monospace;
-      color: #e0e5ff;
-      cursor: pointer;
+      background: #0f1422dd; border: 1px solid #a855f7; border-radius: 2rem;
+      padding: 0.5rem; font-family: 'Orbitron', monospace; color: #e0e5ff; cursor: pointer;
     }
-    footer {
-      text-align: center;
-      margin-top: 2rem;
-      font-size: 0.7rem;
-      opacity: 0.7;
+    .notification-badge { position: relative; cursor: pointer; }
+    .badge-count {
+      position: absolute; top: -8px; right: -8px; background: #ff0055;
+      border-radius: 50%; width: 18px; height: 18px; font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
     }
-    .status-msg {
-      font-size: 0.7rem;
-      margin-top: 0.5rem;
-      color: #00f2ff;
-    }
-    .alert {
-      color: #ff0055;
-    }
+    .status-msg { font-size: 0.7rem; margin-top: 0.5rem; color: #00f2ff; text-align: center; }
+    .alert { color: #ff0055; }
+    footer { text-align: center; margin-top: 2rem; font-size: 0.7rem; opacity: 0.7; }
+    @media (max-width: 700px) { body { padding: 1rem; } }
   </style>
 </head>
 <body>
 <div class="container" id="appRoot"></div>
 
 <script>
-  // ==================== LIMITED USER SYSTEM (MAX 3 REGISTRATIONS) ====================
-  // Pre-defined allowed users - only 3 accounts can be created
+  // ==================== USER SYSTEM (MAX 3 REGISTRATIONS) ====================
   let users = [];
   let currentUser = null;
   let currentLang = 'en';
   
-  // Load users from localStorage
+  // TOTAL SUPPLY DO FUNDO DE RESERVA: 99,999,999,999,999,999 BRD
+  const RESERVE_TOTAL_SUPPLY = 99999999999999999;
+  
   function loadUsers() {
     const stored = localStorage.getItem('bradicoin_reserve_users');
-    if(stored) {
-      users = JSON.parse(stored);
-    } else {
-      // Initialize with empty users array - allows up to 3 registrations
-      users = [];
-      localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users));
-    }
+    if(stored) { users = JSON.parse(stored); }
+    else { users = []; localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
   }
   
-  function saveUsers() {
-    localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users));
-  }
+  function saveUsers() { localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
+  function canRegister() { return users.length < 3; }
   
-  // Check if registration is still available (max 3 users)
-  function canRegister() {
-    return users.length < 3;
-  }
-  
-  // Register new user
   function registerUser(username, password) {
-    if(!canRegister()) {
-      return { success: false, message: "Registration limit reached. Maximum 3 users allowed." };
-    }
-    if(users.find(u => u.username === username)) {
-      return { success: false, message: "Username already exists." };
-    }
-    if(username.length < 3 || password.length < 4) {
-      return { success: false, message: "Username (min 3 chars) and password (min 4 chars) required." };
-    }
-    // Create new user with initial balance
+    if(!canRegister()) return { success: false, message: "Registration limit reached. Maximum 3 users allowed." };
+    if(users.find(u => u.username === username)) return { success: false, message: "Username already exists." };
+    if(username.length < 3 || password.length < 4) return { success: false, message: "Username (min 3 chars) and password (min 4 chars) required." };
+    
+    const walletAddress = `Br${username}${Date.now().toString(36).slice(-8)}`;
     const newUser = {
       id: Date.now(),
       username: username,
       password: password,
-      balance: 5000, // Initial BRD balance
+      balance: 1000000,
+      walletAddress: walletAddress,
       activeStake: null,
-      airdropClaimed: false,
       referralCode: "RES" + Math.random().toString(36).substring(2, 8).toUpperCase()
     };
     users.push(newUser);
     saveUsers();
-    return { success: true, message: "Account created successfully!" };
+    return { success: true, message: "Account created successfully! You have 1,000,000 BRD from the Reserve Fund." };
   }
   
-  // Login user
   function loginUser(username, password) {
     const user = users.find(u => u.username === username && u.password === password);
     if(user) {
@@ -249,46 +167,30 @@
     if(saved) {
       const session = JSON.parse(saved);
       const user = users.find(u => u.id === session.id);
-      if(user) {
-        currentUser = user;
-      }
+      if(user) currentUser = user;
     }
   }
   
   function saveUserData() {
     if(currentUser) {
       const index = users.findIndex(u => u.id === currentUser.id);
-      if(index !== -1) {
-        users[index] = currentUser;
-        saveUsers();
-      }
+      if(index !== -1) { users[index] = currentUser; saveUsers(); }
     }
   }
   
   // ==================== STAKING FUNCTIONS (50% APR) ====================
   const stakingOptions = [
-    { name: "1 Hour", periodSeconds: 3600, apr: 50, minStake: 10 },
-    { name: "1 Day", periodSeconds: 86400, apr: 50, minStake: 50 }
+    { name: "1 Hour", periodSeconds: 3600, apr: 50, minStake: 100 },
+    { name: "1 Day", periodSeconds: 86400, apr: 50, minStake: 500 }
   ];
   
-  function calculateReward(amount, periodSeconds) {
-    return amount * (0.50 * (periodSeconds / 31536000));
-  }
+  function calculateReward(amount, periodSeconds) { return amount * (0.50 * (periodSeconds / 31536000)); }
   
   function stake(amount, option) {
     if(!currentUser) return;
-    if(amount <= 0 || amount > currentUser.balance) {
-      showStatus("Invalid amount or insufficient balance", 'stakeStatus');
-      return;
-    }
-    if(amount < option.minStake) {
-      showStatus(`Minimum stake is ${option.minStake} BRD`, 'stakeStatus');
-      return;
-    }
-    if(currentUser.activeStake && currentUser.activeStake.lockEndTime > Date.now()) {
-      showStatus("You already have an active stake! Wait or unstake first.", 'stakeStatus');
-      return;
-    }
+    if(amount <= 0 || amount > currentUser.balance) { showStatus("Invalid amount or insufficient balance", 'stakeStatus'); return; }
+    if(amount < option.minStake) { showStatus(`Minimum stake is ${option.minStake} BRD`, 'stakeStatus'); return; }
+    if(currentUser.activeStake && currentUser.activeStake.lockEndTime > Date.now()) { showStatus("You already have an active stake! Wait or unstake first.", 'stakeStatus'); return; }
     if(currentUser.activeStake && currentUser.activeStake.lockEndTime <= Date.now()) {
       const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.periodSeconds);
       currentUser.balance += currentUser.activeStake.amount + reward;
@@ -304,22 +206,16 @@
     currentUser.balance -= amount;
     saveUserData();
     renderDashboard();
-    addNotification(`🔒 Staked ${amount} BRD for ${option.name} at 50% APR`);
+    addNotification(`🔒 Staked ${amount.toLocaleString()} BRD for ${option.name} at 50% APR`);
     showStatus(`Staked ${amount} BRD for ${option.name}!`, 'stakeStatus');
   }
   
   function unstake() {
-    if(!currentUser || !currentUser.activeStake) {
-      showStatus("No active stake", 'stakeStatus');
-      return;
-    }
-    if(Date.now() < currentUser.activeStake.lockEndTime) {
-      showStatus("Stake still locked!", 'stakeStatus');
-      return;
-    }
+    if(!currentUser || !currentUser.activeStake) { showStatus("No active stake", 'stakeStatus'); return; }
+    if(Date.now() < currentUser.activeStake.lockEndTime) { showStatus("Stake still locked!", 'stakeStatus'); return; }
     const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.periodSeconds);
     currentUser.balance += currentUser.activeStake.amount + reward;
-    addNotification(`✅ Unstaked ${currentUser.activeStake.amount} BRD + ${reward.toFixed(4)} reward (50% APR)`);
+    addNotification(`✅ Unstaked ${currentUser.activeStake.amount.toLocaleString()} BRD + ${reward.toFixed(4)} reward (50% APR)`);
     currentUser.activeStake = null;
     saveUserData();
     renderDashboard();
@@ -335,31 +231,37 @@
     return Math.min(100, (elapsed / total) * 100);
   }
   
-  // ==================== SEND / RECEIVE ====================
+  // ==================== SEND / RECEIVE COM AUTO-REPOSIÇÃO ====================
+  // O Fundo de Reserva repõe automaticamente qualquer valor enviado!
   function sendCoins(toAddress, amount) {
     if(!currentUser) return;
-    if(!toAddress || amount <= 0 || amount > currentUser.balance) {
-      showStatus("Invalid transaction", 'txStatus');
-      return;
-    }
-    // Simulate sending to another address (just deduct balance)
+    if(!toAddress || amount <= 0 || amount > currentUser.balance) { showStatus("Invalid transaction", 'txStatus'); return; }
+    
+    // Deduz do saldo do usuário
     currentUser.balance -= amount;
+    
+    // AUTO-REPLETION: O Fundo de Reserva repõe o valor exato!
+    // Isso simula um fundo de reserva infinito
+    currentUser.balance += amount;
+    
+    // Gera hash de transação simulada
+    const txHash = "0x" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    
     saveUserData();
     renderDashboard();
-    addNotification(`💸 Sent ${amount} BRD to ${toAddress.substring(0,10)}...`);
-    showStatus(`Sent ${amount} BRD successfully!`, 'txStatus');
+    addNotification(`💸 Sent ${amount.toLocaleString()} BRD to ${toAddress.substring(0, 15)}... (Auto-repleted from Reserve Fund) TX: ${txHash.substring(0, 10)}`);
+    showStatus(`✅ Sent ${amount.toLocaleString()} BRD! Funds auto-repleted from Reserve Fund.`, 'txStatus');
   }
   
   function copyAddress() {
-    if(currentUser && currentUser.username) {
-      const dummyAddress = `0x${currentUser.username}${Math.random().toString(36).substring(2, 10)}`;
-      navigator.clipboard.writeText(dummyAddress);
-      showStatus("Address copied!", 'txStatus');
+    if(currentUser && currentUser.walletAddress) {
+      navigator.clipboard.writeText(currentUser.walletAddress);
+      showStatus("Wallet address copied!", 'txStatus');
     }
   }
   
   // ==================== NOTIFICATIONS ====================
-  let notifications = [{ text: "✨ Welcome to Bradicoin Reserve Fund! 50% APR Staking", read: false }];
+  let notifications = [{ text: "✨ Welcome to Bradicoin Reserve Fund! 50% APR Staking | Unlimited Reserve Fund", read: false }];
   
   function addNotification(text) {
     notifications.unshift({ text, read: false });
@@ -386,10 +288,7 @@
   
   function showStatus(msg, elementId) {
     const el = document.getElementById(elementId);
-    if(el) {
-      el.innerText = msg;
-      setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 4000);
-    }
+    if(el) { el.innerText = msg; setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 5000); }
   }
   
   // ==================== TRANSLATIONS (EN/PT) ====================
@@ -398,36 +297,30 @@
       title: "BRADICOIN RESERVE FUND", login: "Login", register: "Register", logout: "Logout",
       username: "Username", password: "Password", confirmPassword: "Confirm Password",
       loginBtn: "Sign In", registerBtn: "Create Account", noAccount: "Don't have an account?",
-      hasAccount: "Already have an account?", dashboard: "Dashboard", balance: "Balance",
-      walletAddress: "Wallet Address", copy: "Copy", sendReceive: "Send / Receive",
-      recipient: "Recipient Address", amount: "Amount (BRD)", send: "Send BRD",
-      staking: "Staking Pools (50% APR)", stakeFor: "Stake for", lock: "Lock", min: "Min",
-      noStake: "No active stake", unstake: "Unstake Matured", reward: "Reward",
-      explorer: "Bradichain Explorer", footer: "BRADICOIN RESERVE ● 50% APR ● Limited Access (Max 3 Users)"
+      hasAccount: "Already have an account?", balance: "Balance", walletAddress: "Wallet Address",
+      copy: "Copy", sendReceive: "Send / Receive", recipient: "Recipient Address",
+      amount: "Amount (BRD)", send: "Send BRD", staking: "Staking Pools (50% APR)",
+      stakeFor: "Stake for", lock: "Lock", min: "Min", noStake: "No active stake",
+      unstake: "Unstake Matured", reward: "Reward", explorer: "Bradichain Explorer",
+      footer: "BRADICOIN RESERVE ● 50% APR ● Unlimited Reserve Fund ● Max 3 Users",
+      reserveInfo: "Unlimited Reserve Fund - Auto-Repletion Enabled"
     },
     pt: {
       title: "FUNDO RESERVA BRADICOIN", login: "Entrar", register: "Cadastrar", logout: "Sair",
       username: "Usuário", password: "Senha", confirmPassword: "Confirmar Senha",
       loginBtn: "Entrar", registerBtn: "Criar Conta", noAccount: "Não tem uma conta?",
-      hasAccount: "Já tem uma conta?", dashboard: "Painel", balance: "Saldo",
-      walletAddress: "Endereço da Carteira", copy: "Copiar", sendReceive: "Enviar / Receber",
-      recipient: "Endereço do Destinatário", amount: "Quantidade (BRD)", send: "Enviar BRD",
-      staking: "Pools de Staking (50% APR)", stakeFor: "Fazer Stake por", lock: "Bloqueio", min: "Mín",
-      noStake: "Nenhum stake ativo", unstake: "Retirar Stake", reward: "Recompensa",
-      explorer: "Explorador Bradichain", footer: "FUNDO RESERVA BRADICOIN ● 50% APR ● Acesso Limitado (Máx 3 Usuários)"
+      hasAccount: "Já tem uma conta?", balance: "Saldo", walletAddress: "Endereço da Carteira",
+      copy: "Copiar", sendReceive: "Enviar / Receber", recipient: "Endereço do Destinatário",
+      amount: "Quantidade (BRD)", send: "Enviar BRD", staking: "Pools de Staking (50% APR)",
+      stakeFor: "Fazer Stake por", lock: "Bloqueio", min: "Mín", noStake: "Nenhum stake ativo",
+      unstake: "Retirar Stake", reward: "Recompensa", explorer: "Explorador Bradichain",
+      footer: "FUNDO RESERVA BRADICOIN ● 50% APR ● Fundo de Reserva Ilimitado ● Máx 3 Usuários",
+      reserveInfo: "Fundo de Reserva Ilimitado - Auto-Reabastecimento Ativado"
     }
   };
   
-  function t(key) {
-    return translations[currentLang][key] || key;
-  }
-  
-  function updateLanguage() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      if(translations[currentLang][key]) el.innerText = translations[currentLang][key];
-    });
-  }
+  function t(key) { return translations[currentLang][key] || key; }
+  function updateLanguage() { document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if(translations[currentLang][key]) el.innerText = translations[currentLang][key]; }); }
   
   // ==================== RENDER AUTH PAGES ====================
   let showingLogin = true;
@@ -439,8 +332,9 @@
       <div class="auth-container">
         <div class="auth-box neon-card">
           <div class="logo-large"><i class="fas fa-shield-alt"></i></div>
-          <h1 data-i18n="title" style="font-size:1.8rem; margin-bottom:0.5rem;">BRADICOIN RESERVE FUND</h1>
+          <h1 style="font-size:1.8rem; margin-bottom:0.5rem;">BRADICOIN RESERVE FUND</h1>
           <p style="color:#a855f7; margin-bottom:1.5rem;">🔒 Limited Access · Max 3 Users</p>
+          <p style="color:#00f2ff; font-size:0.7rem; margin-bottom:1rem;">💎 Total Reserve: 99,999,999,999,999,999 BRD</p>
           
           ${showingLogin ? `
             <div style="margin-bottom:1rem;">
@@ -469,7 +363,6 @@
     `;
     document.getElementById('appRoot').innerHTML = html;
     
-    // Language selector
     document.getElementById('langSelectAuth').value = currentLang;
     document.getElementById('langSelectAuth').onchange = (e) => { currentLang = e.target.value; renderAuth(); };
     
@@ -478,12 +371,8 @@
         const user = document.getElementById('loginUsername').value;
         const pass = document.getElementById('loginPassword').value;
         const result = loginUser(user, pass);
-        if(result.success) {
-          renderApp();
-        } else {
-          loginError = result.message;
-          renderAuth();
-        }
+        if(result.success) { renderApp(); }
+        else { loginError = result.message; renderAuth(); }
       };
       document.getElementById('switchToRegister').onclick = (e) => { e.preventDefault(); showingLogin = false; loginError = ""; renderAuth(); };
     } else {
@@ -491,20 +380,10 @@
         const user = document.getElementById('regUsername').value;
         const pass = document.getElementById('regPassword').value;
         const confirm = document.getElementById('regConfirm').value;
-        if(pass !== confirm) {
-          registerError = "Passwords do not match!";
-          renderAuth();
-          return;
-        }
+        if(pass !== confirm) { registerError = "Passwords do not match!"; renderAuth(); return; }
         const result = registerUser(user, pass);
-        if(result.success) {
-          showingLogin = true;
-          registerError = "";
-          renderAuth();
-        } else {
-          registerError = result.message;
-          renderAuth();
-        }
+        if(result.success) { showingLogin = true; registerError = ""; renderAuth(); }
+        else { registerError = result.message; renderAuth(); }
       };
       document.getElementById('switchToLogin').onclick = (e) => { e.preventDefault(); showingLogin = true; registerError = ""; renderAuth(); };
     }
@@ -538,7 +417,7 @@
     }
     
     const stakingOptionsHtml = stakingOptions.map(opt => `
-      <div class="neon-card" style="padding:1rem; margin-bottom:0.8rem;">
+      <div style="background:#0a0e1f; border-radius:1rem; padding:0.8rem; margin-bottom:0.8rem; border-left:3px solid #a855f7;">
         <div style="display:flex; justify-content:space-between;"><strong>${opt.name}</strong><span style="color:#00f2ff;">${opt.apr}% APR</span></div>
         <div style="font-size:0.7rem;">${t('lock')}: ${opt.periodSeconds === 3600 ? '1 hour' : '1 day'} | ${t('min')}: ${opt.minStake} BRD</div>
         <input type="number" id="stakeAmount_${opt.name.replace(/\s/g,'')}" class="cyber-input" placeholder="${t('amount')}" step="any" style="margin-top:0.5rem;">
@@ -548,27 +427,28 @@
     
     const html = `
       <div class="top-bar">
-        <div><h1><i class="fas fa-shield-alt"></i> <span data-i18n="title">BRADICOIN RESERVE FUND</span></h1></div>
+        <div><h1><i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND</h1></div>
         <div style="display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
+          <span style="color:#00f2ff;"><i class="fas fa-user"></i> ${currentUser.username}</span>
           <button id="logoutBtnDashboard" class="cyber-btn"><i class="fas fa-sign-out-alt"></i> ${t('logout')}</button>
-          <div class="notification-badge" style="position:relative; cursor:pointer;" id="notifBell"><i class="fas fa-bell"></i><span id="notifCount" class="badge-count" style="position:absolute; top:-8px; right:-8px; background:#ff0055; border-radius:50%; width:18px; height:18px; font-size:10px; display:flex; align-items:center; justify-content:center;">0</span></div>
-          <select id="langSelectDash" class="lang-selector"><option value="en">🇬🇧 English</option><option value="pt">🇧🇷 Português</option></select>
+          <div class="notification-badge" id="notifBell"><i class="fas fa-bell"></i><span id="notifCount" class="badge-count">0</span></div>
+          <select id="langSelectDash" class="lang-selector"><option value="en">🇬🇧 EN</option><option value="pt">🇧🇷 PT</option></select>
         </div>
       </div>
       <div id="notificationPanel" style="display:none; position:fixed; top:80px; right:20px; width:320px; background:#0a0f1e; border:1px solid #a855f7; border-radius:1rem; padding:1rem; z-index:1000; backdrop-filter:blur(12px);"></div>
       
       <div class="dashboard-grid">
         <div class="neon-card">
-          <div class="card-title" style="font-size:1.3rem; margin-bottom:1rem;"><i class="fas fa-chart-line"></i> ${t('balance')}</div>
-          <div class="balance-amount" id="balanceDisplay">${currentUser.balance.toFixed(4)}</div>
-          <div class="balance-label" style="margin-bottom:1rem;">BRD TOKEN</div>
-          <div><label>${t('walletAddress')}</label><div class="cyber-input" id="walletAddressDisplay">0x${currentUser.username}...${currentUser.id.toString().slice(-4)}</div></div>
+          <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-chart-line"></i> ${t('balance')}</div>
+          <div class="balance-amount" id="balanceDisplay">${currentUser.balance.toLocaleString()}</div>
+          <div style="margin-bottom:1rem;">BRD TOKEN</div>
+          <div><label>${t('walletAddress')}</label><div class="cyber-input" id="walletAddressDisplay">${currentUser.walletAddress}</div></div>
           <button id="copyAddrBtn" class="cyber-btn" style="margin-top:0.5rem; width:100%;"><i class="far fa-copy"></i> ${t('copy')}</button>
           <div style="margin-top:1rem;"><a href="https://www.bradichain.com" target="_blank" style="color:#00f2ff;"><i class="fas fa-globe"></i> ${t('explorer')}</a></div>
         </div>
         
         <div class="neon-card">
-          <div class="card-title" style="font-size:1.3rem; margin-bottom:1rem;"><i class="fas fa-layer-group"></i> ${t('staking')}</div>
+          <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-layer-group"></i> ${t('staking')}</div>
           ${stakingOptionsHtml}
           <div id="stakeStatus" class="status-msg"></div>
           ${stakeInfoHtml}
@@ -576,14 +456,18 @@
         </div>
         
         <div class="neon-card">
-          <div class="card-title" style="font-size:1.3rem; margin-bottom:1rem;"><i class="fas fa-exchange-alt"></i> ${t('sendReceive')}</div>
-          <input type="text" id="recipientAddr" class="cyber-input" placeholder="${t('recipient')}">
+          <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-exchange-alt"></i> ${t('sendReceive')}</div>
+          <input type="text" id="recipientAddr" class="cyber-input" placeholder="${t('recipient')} (Br...)">
           <input type="number" id="sendAmount" class="cyber-input" placeholder="${t('amount')}" step="any" style="margin-top:0.5rem;">
           <button id="sendBtn" class="cyber-btn primary" style="width:100%; margin-top:0.5rem;"><i class="fas fa-paper-plane"></i> ${t('send')}</button>
           <div id="txStatus" class="status-msg"></div>
+          <div style="margin-top:1rem; text-align:center; font-size:0.7rem; color:#a855f7; background:#010518; padding:0.5rem; border-radius:1rem;">
+            <i class="fas fa-infinity"></i> ${t('reserveInfo')}<br>
+            💰 Total Reserve: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD
+          </div>
         </div>
       </div>
-      <footer><span data-i18n="footer">BRADICOIN RESERVE ● 50% APR ● Limited Access (Max 3 Users)</span></footer>
+      <footer>${t('footer')}</footer>
     `;
     
     document.getElementById('appRoot').innerHTML = html;
@@ -614,11 +498,11 @@
     document.getElementById('langSelectDash').value = currentLang;
     document.getElementById('langSelectDash').onchange = (e) => { currentLang = e.target.value; renderDashboard(); };
     
-    // Update balance periodically
+    // Update balance and stake progress periodically
     setInterval(() => {
       if(currentUser) {
         const balanceSpan = document.getElementById('balanceDisplay');
-        if(balanceSpan) balanceSpan.innerText = currentUser.balance.toFixed(4);
+        if(balanceSpan) balanceSpan.innerText = currentUser.balance.toLocaleString();
         const stakeProgress = getStakeProgress();
         const progressFill = document.querySelector('.progress-fill');
         if(progressFill) progressFill.style.width = `${stakeProgress}%`;
@@ -626,17 +510,13 @@
     }, 1000);
     
     renderNotifications();
-    updateLanguage();
   }
   
   function renderApp() {
     loadUsers();
     loadCurrentSession();
-    if(currentUser) {
-      renderDashboard();
-    } else {
-      renderAuth();
-    }
+    if(currentUser) { renderDashboard(); }
+    else { renderAuth(); }
   }
   
   renderApp();
