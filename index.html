@@ -23,7 +23,6 @@
       overflow-x: hidden;
     }
 
-    /* Animated Background */
     body::before {
       content: '';
       position: fixed;
@@ -55,7 +54,6 @@
       z-index: 1;
     }
 
-    /* Glassmorphism Card */
     .glass-card {
       background: rgba(10, 15, 30, 0.7);
       backdrop-filter: blur(12px);
@@ -71,7 +69,6 @@
       transform: translateY(-5px);
     }
 
-    /* Premium Buttons */
     .btn {
       background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(0, 242, 255, 0.1));
       border: 1px solid rgba(168, 85, 247, 0.5);
@@ -138,7 +135,18 @@
       border-color: transparent;
     }
 
-    /* Premium Inputs */
+    .btn-bradichain {
+      background: linear-gradient(135deg, #ff6b35, #f7931a);
+      border: none;
+      box-shadow: 0 4px 15px rgba(247, 147, 26, 0.3);
+    }
+
+    .btn-bradichain:hover {
+      background: linear-gradient(135deg, #f7931a, #ff6b35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(247, 147, 26, 0.5);
+    }
+
     .input {
       background: rgba(1, 5, 24, 0.8);
       border: 1px solid rgba(168, 85, 247, 0.4);
@@ -158,7 +166,6 @@
       background: rgba(1, 5, 24, 1);
     }
 
-    /* Header */
     .header {
       background: rgba(10, 15, 30, 0.6);
       backdrop-filter: blur(12px);
@@ -204,7 +211,6 @@
       background-clip: text;
     }
 
-    /* Balance Display */
     .balance-card {
       text-align: center;
       padding: 30px;
@@ -231,7 +237,6 @@
       word-break: break-all;
     }
 
-    /* Grid Layout */
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -246,7 +251,6 @@
       .grid { grid-template-columns: 1fr; }
     }
 
-    /* Card Headers */
     .card-header {
       font-size: 1.2rem;
       font-weight: 600;
@@ -263,7 +267,6 @@
       font-size: 1.3rem;
     }
 
-    /* Staking Item */
     .staking-item {
       background: rgba(1, 5, 24, 0.5);
       border-radius: 20px;
@@ -278,7 +281,6 @@
       transform: translateX(5px);
     }
 
-    /* Progress Bar */
     .progress-container {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 20px;
@@ -312,7 +314,6 @@
       100% { transform: translateX(100%); }
     }
 
-    /* Wallet Address */
     .wallet-box {
       background: rgba(1, 5, 24, 0.6);
       border-radius: 20px;
@@ -324,7 +325,6 @@
       border: 1px dashed rgba(168, 85, 247, 0.3);
     }
 
-    /* History Table */
     .history-container {
       max-height: 350px;
       overflow-y: auto;
@@ -354,7 +354,6 @@
       background: rgba(168, 85, 247, 0.05);
     }
 
-    /* Badge */
     .badge {
       display: inline-block;
       padding: 4px 12px;
@@ -368,7 +367,6 @@
     .badge-stake { background: rgba(255, 170, 102, 0.2); color: #ffaa66; }
     .badge-reward { background: rgba(102, 255, 204, 0.2); color: #66ffcc; }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #0a0c1a; border-radius: 10px; }
     ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 10px; }
@@ -392,6 +390,7 @@
 
     .status-success { background: rgba(0, 255, 136, 0.1); color: #00ff88; }
     .status-error { background: rgba(255, 0, 85, 0.1); color: #ff0055; }
+    .status-info { background: rgba(0, 200, 255, 0.1); color: #00ccff; }
 
     .inline-buttons {
       display: flex;
@@ -403,6 +402,48 @@
       border-color: rgba(168, 85, 247, 0.2);
       margin: 20px 0;
     }
+
+    /* Search Wallet Section */
+    .search-wallet-section {
+      margin-bottom: 24px;
+    }
+
+    .search-wallet-box {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-wallet-box .input {
+      flex: 1;
+    }
+
+    .result-box {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 20px;
+      display: none;
+    }
+
+    .result-box.show {
+      display: block;
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Bradichain Badge */
+    .bradichain-badge {
+      background: linear-gradient(135deg, #f7931a, #ff6b35);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -411,6 +452,7 @@
 <script>
   // ==================== CONFIGURAÇÃO ====================
   const API_URL = 'https://bradicoin-api.onrender.com';
+  const BRADICHAIN_URL = 'https://www.bradichain.com';
   const RESERVE_SUPPLY = 99999999999999999;
   
   let users = [];
@@ -526,6 +568,94 @@
     
     if(currentUser.transactions.length > 50) currentUser.transactions.pop();
     saveCurrentUser();
+  }
+  
+  // ==================== CONSULTAR WALLET (BRADICHAIN + API) ====================
+  async function consultarWalletBradichain() {
+    const address = document.getElementById('searchWalletAddress').value.trim();
+    const resultDiv = document.getElementById('searchResult');
+    
+    if (!address) {
+      showStatus('📌 Enter a wallet address to consult', 'searchStatus', 'error');
+      return;
+    }
+    
+    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting Bradichain blockchain...</div>';
+    resultDiv.classList.add('show');
+    
+    try {
+      // Consultar saldo via API
+      const response = await fetch(`${API_URL}/api/balance/${address}`);
+      const data = await response.json();
+      
+      let balance = 0;
+      let found = false;
+      
+      if (data && data.success && data.data) {
+        balance = data.data.balance;
+        found = true;
+      }
+      
+      if (found || balance > 0) {
+        resultDiv.innerHTML = `
+          <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+              <div>
+                <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET FOUND</span>
+                <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;"><i class="fas fa-link"></i> Bradichain Mainnet</span>
+              </div>
+              <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+                <i class="fas fa-external-link-alt"></i> Open on Bradichain
+              </button>
+            </div>
+            <div class="metric-row"><span class="metric-label">📍 Wallet Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+            <div class="metric-row"><span class="metric-label">💰 Current Balance:</span><span class="metric-value" style="color: #00ff66; font-size: 1.5rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
+            <div class="metric-row"><span class="metric-label">💎 Currency:</span><span class="metric-value">BRD (Bradicoin)</span></div>
+            <div class="metric-row"><span class="metric-label">🔗 Network:</span><span class="metric-value">Bradichain Mainnet</span></div>
+            <div class="metric-row"><span class="metric-label">⏱️ Last Check:</span><span class="metric-value">${new Date().toLocaleString()}</span></div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
+              <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copy Address</button>
+              <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> View Transactions</button>
+            </div>
+          </div>
+        `;
+        showStatus(`✅ Wallet found! Balance: ${balance.toLocaleString()} BRD`, 'searchStatus', 'success');
+      } else {
+        resultDiv.innerHTML = `
+          <div style="background: linear-gradient(135deg, rgba(255,100,100,0.1), rgba(255,200,0,0.05)); border: 2px solid #ffc800; border-radius: 20px; padding: 20px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>
+            <h3 style="color: #ffc800;">Wallet Not Found</h3>
+            <p style="margin: 15px 0;">The address <code style="color: cyan;">${address}</code> was not found on the Bradicoin blockchain.</p>
+            <p style="font-size: 12px;">💡 Make sure the address starts with "Br" and is correctly typed.</p>
+            <div style="margin-top: 20px;">
+              <button onclick="openBradichainExplorer('${address}')" class="btn btn-outline" style="padding: 8px 16px;">🔍 Try on Bradichain Explorer</button>
+            </div>
+          </div>
+        `;
+        showStatus(`⚠️ Wallet not found on Bradichain`, 'searchStatus', 'error');
+      }
+    } catch (error) {
+      resultDiv.innerHTML = `
+        <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
+          <div style="font-size: 48px;">❌</div>
+          <h3 style="color: #ff6464;">Connection Error</h3>
+          <p>Could not connect to Bradicoin API.</p>
+          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">🌐 Open Bradichain Explorer</button>
+        </div>
+      `;
+      showStatus(`❌ API connection error`, 'searchStatus', 'error');
+    }
+  }
+  
+  function openBradichainExplorer(address) {
+    const url = `${BRADICHAIN_URL}/address/${address}`;
+    window.open(url, '_blank');
+    showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
+  }
+  
+  function copyToClipboardManual(text) {
+    navigator.clipboard.writeText(text);
+    showStatus(`📋 Address copied to clipboard!`, 'searchStatus', 'success');
   }
   
   // ==================== API ====================
@@ -666,7 +796,7 @@
   
   function lookupOnBradichain() {
     if(!currentUser) return;
-    const url = `https://www.bradichain.com/address/${currentUser.walletAddress}`;
+    const url = `${BRADICHAIN_URL}/address/${currentUser.walletAddress}`;
     window.open(url, '_blank');
     showStatus('🔍 Opening Bradichain Explorer...', 'status', 'info');
   }
@@ -791,6 +921,18 @@
         </div>
       </div>
       
+      <!-- Search Wallet Section -->
+      <div class="glass-card search-wallet-section" style="padding: 24px; margin-bottom: 24px;">
+        <div class="card-header"><i class="fas fa-search"></i> Consult Wallet on Bradichain <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain.com</span></div>
+        <div class="search-wallet-box">
+          <input type="text" id="searchWalletAddress" class="input" placeholder="Enter Bradicoin wallet address (Br...)" style="flex: 1;">
+          <button id="consultWalletBtn" class="btn btn-bradichain"><i class="fas fa-search"></i> Consult</button>
+          <button id="openExplorerBtn" class="btn btn-outline"><i class="fas fa-external-link-alt"></i> Open Explorer</button>
+        </div>
+        <div id="searchResult" class="result-box"></div>
+        <div id="searchStatus" class="status-msg"></div>
+      </div>
+      
       <div class="balance-card glass-card">
         <div class="balance-label">TOTAL BALANCE</div>
         <div class="balance-amount">${currentUser.balance.toLocaleString()} <span style="font-size: 1rem;">BRD</span></div>
@@ -807,7 +949,7 @@
           </div>
           <div class="inline-buttons">
             <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1; padding: 10px;">📋 Copy</button>
-            <button id="lookupChainBtn" class="btn btn-success" style="flex: 1; padding: 10px;">🔍 Explorer</button>
+            <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1; padding: 10px;"><i class="fas fa-link"></i> Explorer</button>
           </div>
           <button id="checkChainBtn" class="btn btn-primary" style="width: 100%; margin-top: 12px;">🔄 Sync with Blockchain</button>
           <div class="wallet-box" style="margin-top: 16px;">
@@ -853,7 +995,7 @@
       </div>
       
       <footer>
-        <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 50% APR | ∞ Auto-Repletion | Max 3 Users
+        <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 50% APR | ∞ Auto-Repletion | Max 3 Users | Powered by Bradichain
       </footer>
     `;
     
@@ -869,6 +1011,15 @@
     document.getElementById('sendBtn').onclick = () => sendBRD(document.getElementById('sendTo').value, parseFloat(document.getElementById('sendAmount').value));
     document.getElementById('receiveBtn').onclick = () => simulateReceive(parseFloat(document.getElementById('receiveAmount').value));
     document.getElementById('unstakeBtn').onclick = doUnstake;
+    document.getElementById('consultWalletBtn').onclick = consultarWalletBradichain;
+    document.getElementById('openExplorerBtn').onclick = () => {
+      const address = document.getElementById('searchWalletAddress').value.trim();
+      if(address) openBradichainExplorer(address);
+      else showStatus('📌 Enter a wallet address first', 'searchStatus', 'error');
+    };
+    document.getElementById('searchWalletAddress').addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') consultarWalletBradichain();
+    });
     
     document.querySelectorAll('.stakeBtn').forEach(btn => {
       btn.onclick = () => {
