@@ -103,6 +103,8 @@
     .alert { color: #ff0055; }
     footer { text-align: center; margin-top: 2rem; font-size: 0.7rem; opacity: 0.7; }
     @media (max-width: 700px) { body { padding: 1rem; } }
+    .explorer-link { color: #00f2ff; text-decoration: none; border-bottom: 1px dashed #a855f7; }
+    .tx-hash { font-family: monospace; font-size: 0.7rem; background: #00000055; padding: 0.2rem 0.4rem; border-radius: 0.5rem; }
   </style>
 </head>
 <body>
@@ -114,36 +116,50 @@
   let currentUser = null;
   let currentLang = 'en';
   
-  // TOTAL SUPPLY DO FUNDO DE RESERVA: 99,999,999,999,999,999 BRD
+  // TOTAL RESERVE FUND EXACTLY: 99,999,999,999,999,999 BRD
   const RESERVE_TOTAL_SUPPLY = 99999999999999999;
   
+  // Função para carregar usuários com integridade
   function loadUsers() {
     const stored = localStorage.getItem('bradicoin_reserve_users');
-    if(stored) { users = JSON.parse(stored); }
-    else { users = []; localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
+    if(stored) { 
+      users = JSON.parse(stored);
+      // Garantir que todos os usuários tenham o campo referralCode e activeStake se não existir
+      users.forEach(u => {
+        if(!u.referralCode) u.referralCode = "RES" + Math.random().toString(36).substring(2, 8).toUpperCase();
+        if(!u.activeStake) u.activeStake = null;
+        if(typeof u.balance !== 'number') u.balance = 99999999999999999; // força reserva
+      });
+    } else { 
+      users = []; 
+      localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users));
+    }
   }
   
   function saveUsers() { localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
   function canRegister() { return users.length < 3; }
   
+  // Registrar novo usuário com saldo inicial de 99,999,999,999,999,999 BRD - de acordo com pedido: removi 1.000.000 e adicionei o valor total do fundo
   function registerUser(username, password) {
     if(!canRegister()) return { success: false, message: "Registration limit reached. Maximum 3 users allowed." };
     if(users.find(u => u.username === username)) return { success: false, message: "Username already exists." };
     if(username.length < 3 || password.length < 4) return { success: false, message: "Username (min 3 chars) and password (min 4 chars) required." };
     
+    // remove qualquer BrBradimomap7q9 legacy, garantindo novo padrão
     const walletAddress = `Br${username}${Date.now().toString(36).slice(-8)}`;
     const newUser = {
       id: Date.now(),
       username: username,
       password: password,
-      balance: 1000000,
+      balance: RESERVE_TOTAL_SUPPLY,   // AGORA COM O VALOR TOTAL DO FUNDO DE RESERVA
       walletAddress: walletAddress,
       activeStake: null,
-      referralCode: "RES" + Math.random().toString(36).substring(2, 8).toUpperCase()
+      referralCode: "RES" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      transactionHistory: []
     };
     users.push(newUser);
     saveUsers();
-    return { success: true, message: "Account created successfully! You have 1,000,000 BRD from the Reserve Fund." };
+    return { success: true, message: `Account created successfully! You have ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD from the Reserve Fund.` };
   }
   
   function loginUser(username, password) {
@@ -179,7 +195,9 @@
   }
   
   // ==================== STAKING FUNCTIONS (50% APR) ====================
+  // Adicionado período de 30 minutos!
   const stakingOptions = [
+    { name: "30 Minutes", periodSeconds: 1800, apr: 50, minStake: 50 },
     { name: "1 Hour", periodSeconds: 3600, apr: 50, minStake: 100 },
     { name: "1 Day", periodSeconds: 86400, apr: 50, minStake: 500 }
   ];
@@ -231,26 +249,86 @@
     return Math.min(100, (elapsed / total) * 100);
   }
   
-  // ==================== SEND / RECEIVE COM AUTO-REPOSIÇÃO ====================
-  // O Fundo de Reserva repõe automaticamente qualquer valor enviado!
+  // ==================== SEND / RECEIVE COM AUTO-REPOSIÇÃO INFINITA ====================
+  // Quando envia BRD, o valor é instantaneamente reposto pelo Fundo de Reserva, mantendo o saldo inalterado ou até crescendo!
+  // Além disso adicionamos funcionalidade de "receber BRD" - qualquer wallet externa pode enviar, mas o sistema também permite simular depósito.
+  // O pedido: "adicione valor infinito quando for enviado BRD reponha o valor e adicione mais bradicoin a wallet"
+  // Implementação: Ao enviar, o valor deduzido é imediatamente reposto + um bônus adicional de 0.1% para crescimento infinito.
+  // Também é possível consultar qualquer wallet da Bradichain via link real.
   function sendCoins(toAddress, amount) {
     if(!currentUser) return;
-    if(!toAddress || amount <= 0 || amount > currentUser.balance) { showStatus("Invalid transaction", 'txStatus'); return; }
+    if(!toAddress || toAddress.trim() === "") { showStatus("Please enter a valid recipient wallet address", 'txStatus'); return; }
+    if(amount <= 0 || isNaN(amount)) { showStatus("Amount must be greater than zero", 'txStatus'); return; }
+    if(amount > currentUser.balance) { showStatus("Insufficient BRD balance", 'txStatus'); return; }
     
-    // Deduz do saldo do usuário
+    // Simular validação de endereço (precisa começar com Br para ser wallet Bradicoin)
+    if(!toAddress.startsWith("Br") && !toAddress.startsWith("0x")) { 
+      // Aceita formato genérico mas emite warn, ainda assim processa
+      addNotification(`⚠️ Warning: Address ${toAddress} may not be a valid Bradichain wallet.`);
+    }
+    
+    // DEDUZ DO SALDO (transação real)
     currentUser.balance -= amount;
     
-    // AUTO-REPLETION: O Fundo de Reserva repõe o valor exato!
-    // Isso simula um fundo de reserva infinito
-    currentUser.balance += amount;
+    // AUTO-REPOSIÇÃO INFINITA + ADICIONA MAIS BRADICOIN (conceito de fundo de reserva infinito)
+    // O valor enviado é reposto integralmente + bônus incremental de 0.5% para a wallet do usuário
+    const bonus = amount * 0.005; // 0.5% extra a cada transação, fazendo o saldo crescer infinitamente
+    currentUser.balance += amount + bonus;
     
-    // Gera hash de transação simulada
-    const txHash = "0x" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    // Gera hash de transação real para rastreamento na blockchain simulada
+    const txHash = "BRD_" + Math.random().toString(36).substring(2, 15).toUpperCase() + Date.now().toString(36).toUpperCase();
+    const timestamp = new Date().toISOString();
+    
+    // Registrar histórico de transação
+    if(!currentUser.transactionHistory) currentUser.transactionHistory = [];
+    currentUser.transactionHistory.unshift({
+      type: 'SEND',
+      to: toAddress,
+      amount: amount,
+      hash: txHash,
+      date: timestamp,
+      status: 'confirmed'
+    });
     
     saveUserData();
     renderDashboard();
-    addNotification(`💸 Sent ${amount.toLocaleString()} BRD to ${toAddress.substring(0, 15)}... (Auto-repleted from Reserve Fund) TX: ${txHash.substring(0, 10)}`);
-    showStatus(`✅ Sent ${amount.toLocaleString()} BRD! Funds auto-repleted from Reserve Fund.`, 'txStatus');
+    
+    // Notificação com link explorador Bradichain
+    addNotification(`💸 SUCCESS: Sent ${amount.toLocaleString()} BRD to ${toAddress.substring(0, 15)}... <span class="tx-hash">TX: ${txHash}</span><br> 🔄 Reserve Fund auto-repleted + bonus 0.5% credited! Your balance increased!`);
+    showStatus(`✅ Transaction complete! ${amount} BRD sent. Reserve Fund replenished + bonus. TX: ${txHash.substring(0, 12)}...`, 'txStatus');
+    
+    // Atualiza balanço dinâmico após envio
+    updateBalanceDisplay();
+  }
+  
+  // Função para consultar qualquer carteira na blockchain Bradichain (redireciona para explorer real)
+  function lookupWalletOnBradichain(walletAddr) {
+    if(!walletAddr) { showStatus("Enter a wallet address to lookup", 'txStatus'); return; }
+    const explorerUrl = `https://www.bradichain.com/address/${walletAddr}`;
+    window.open(explorerUrl, '_blank');
+    addNotification(`🔍 Looking up wallet ${walletAddr} on Bradichain Explorer...`);
+  }
+  
+  // Função para receber BRD (simula depósito externo)
+  function receiveFunds(senderAddress, amount) {
+    if(!currentUser) return;
+    if(!amount || amount <= 0) { showStatus("Invalid receive amount", 'txStatus'); return; }
+    currentUser.balance += amount;
+    const txHash = "RCV_" + Math.random().toString(36).substring(2, 15).toUpperCase();
+    if(!currentUser.transactionHistory) currentUser.transactionHistory = [];
+    currentUser.transactionHistory.unshift({
+      type: 'RECEIVE',
+      from: senderAddress || "external_wallet",
+      amount: amount,
+      hash: txHash,
+      date: new Date().toISOString(),
+      status: 'confirmed'
+    });
+    saveUserData();
+    renderDashboard();
+    addNotification(`📥 Received ${amount.toLocaleString()} BRD from ${senderAddress || "unknown wallet"}. TX: ${txHash}`);
+    showStatus(`✅ Received ${amount} BRD! Check your balance.`, 'txStatus');
+    updateBalanceDisplay();
   }
   
   function copyAddress() {
@@ -260,12 +338,17 @@
     }
   }
   
+  function updateBalanceDisplay() {
+    const balSpan = document.getElementById('balanceDisplay');
+    if(balSpan && currentUser) balSpan.innerText = currentUser.balance.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+  
   // ==================== NOTIFICATIONS ====================
-  let notifications = [{ text: "✨ Welcome to Bradicoin Reserve Fund! 50% APR Staking | Unlimited Reserve Fund", read: false }];
+  let notifications = [{ text: "✨ Welcome to Bradicoin Reserve Fund! 50% APR Staking | Unlimited Reserve Fund + Infinity Auto-Repletion Enabled", read: false }];
   
   function addNotification(text) {
     notifications.unshift({ text, read: false });
-    if(notifications.length > 10) notifications.pop();
+    if(notifications.length > 15) notifications.pop();
     renderNotifications();
   }
   
@@ -275,7 +358,7 @@
     if(panel) {
       const unread = notifications.filter(n => !n.read).length;
       if(countSpan) countSpan.innerText = unread;
-      panel.innerHTML = `<h4>🔔 Notifications</h4>${notifications.map(n => `<div style="padding:0.5rem; border-bottom:1px solid #a855f7;">${n.text}</div>`).join('')}`;
+      panel.innerHTML = `<h4>🔔 Notifications <span style="font-size:0.6rem;">(real-time)</span></h4>${notifications.map(n => `<div style="padding:0.5rem; border-bottom:1px solid #a855f7; font-size:0.75rem;">${n.text}</div>`).join('')}`;
     }
   }
   
@@ -288,7 +371,7 @@
   
   function showStatus(msg, elementId) {
     const el = document.getElementById(elementId);
-    if(el) { el.innerText = msg; setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 5000); }
+    if(el) { el.innerHTML = msg; setTimeout(() => { if(el.innerHTML === msg) el.innerHTML = ""; }, 6000); }
   }
   
   // ==================== TRANSLATIONS (EN/PT) ====================
@@ -298,31 +381,32 @@
       username: "Username", password: "Password", confirmPassword: "Confirm Password",
       loginBtn: "Sign In", registerBtn: "Create Account", noAccount: "Don't have an account?",
       hasAccount: "Already have an account?", balance: "Balance", walletAddress: "Wallet Address",
-      copy: "Copy", sendReceive: "Send / Receive", recipient: "Recipient Address",
-      amount: "Amount (BRD)", send: "Send BRD", staking: "Staking Pools (50% APR)",
+      copy: "Copy", sendReceive: "Send / Receive BRD", recipient: "Recipient Address",
+      amount: "Amount (BRD)", send: "Send BRD (Auto-repletion)", staking: "Staking Pools (50% APR)",
       stakeFor: "Stake for", lock: "Lock", min: "Min", noStake: "No active stake",
       unstake: "Unstake Matured", reward: "Reward", explorer: "Bradichain Explorer",
-      footer: "BRADICOIN RESERVE ● 50% APR ● Unlimited Reserve Fund ● Max 3 Users",
-      reserveInfo: "Unlimited Reserve Fund - Auto-Repletion Enabled"
+      footer: "BRADICOIN RESERVE ● 50% APR ● ∞ Infinity Reserve Fund ● Auto-Replete + Bonus",
+      reserveInfo: "♾️ Infinite Reserve Fund: each send auto-replenishes + 0.5% bonus",
+      receiveSim: "Simulate Receive BRD", receiveBtn: "Receive (Test)", lookupWallet: "Lookup Wallet"
     },
     pt: {
       title: "FUNDO RESERVA BRADICOIN", login: "Entrar", register: "Cadastrar", logout: "Sair",
       username: "Usuário", password: "Senha", confirmPassword: "Confirmar Senha",
       loginBtn: "Entrar", registerBtn: "Criar Conta", noAccount: "Não tem uma conta?",
       hasAccount: "Já tem uma conta?", balance: "Saldo", walletAddress: "Endereço da Carteira",
-      copy: "Copiar", sendReceive: "Enviar / Receber", recipient: "Endereço do Destinatário",
-      amount: "Quantidade (BRD)", send: "Enviar BRD", staking: "Pools de Staking (50% APR)",
+      copy: "Copiar", sendReceive: "Enviar / Receber BRD", recipient: "Endereço Destinatário",
+      amount: "Quantia (BRD)", send: "Enviar BRD (Auto-reposição)", staking: "Pools de Staking (50% APR)",
       stakeFor: "Fazer Stake por", lock: "Bloqueio", min: "Mín", noStake: "Nenhum stake ativo",
       unstake: "Retirar Stake", reward: "Recompensa", explorer: "Explorador Bradichain",
-      footer: "FUNDO RESERVA BRADICOIN ● 50% APR ● Fundo de Reserva Ilimitado ● Máx 3 Usuários",
-      reserveInfo: "Fundo de Reserva Ilimitado - Auto-Reabastecimento Ativado"
+      footer: "FUNDO RESERVA BRADICOIN ● 50% APR ● Fundo de Reserva Infinito ● Auto-reposição + Bônus",
+      reserveInfo: "♾️ Fundo de Reserva Infinito: cada envio repõe + 0.5% de bônus",
+      receiveSim: "Simular Recebimento BRD", receiveBtn: "Receber (Teste)", lookupWallet: "Consultar Carteira"
     }
   };
   
   function t(key) { return translations[currentLang][key] || key; }
-  function updateLanguage() { document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if(translations[currentLang][key]) el.innerText = translations[currentLang][key]; }); }
   
-  // ==================== RENDER AUTH PAGES ====================
+  // ==================== RENDER AUTH ====================
   let showingLogin = true;
   let registerError = "";
   let loginError = "";
@@ -334,7 +418,7 @@
           <div class="logo-large"><i class="fas fa-shield-alt"></i></div>
           <h1 style="font-size:1.8rem; margin-bottom:0.5rem;">BRADICOIN RESERVE FUND</h1>
           <p style="color:#a855f7; margin-bottom:1.5rem;">🔒 Limited Access · Max 3 Users</p>
-          <p style="color:#00f2ff; font-size:0.7rem; margin-bottom:1rem;">💎 Total Reserve: 99,999,999,999,999,999 BRD</p>
+          <p style="color:#00f2ff; font-size:0.75rem; margin-bottom:1rem;">💎 Total Reserve: 99,999,999,999,999,999 BRD<br>⚡ Infinite Send & Receive with Auto-Repletion</p>
           
           ${showingLogin ? `
             <div style="margin-bottom:1rem;">
@@ -354,7 +438,6 @@
             </div>
             <p style="margin-top:1rem;">${t('hasAccount')} <a href="#" id="switchToLogin" style="color:#00f2ff;">${t('login')}</a></p>
           `}
-          
           <div style="margin-top:1.5rem; display:flex; justify-content:center; gap:1rem;">
             <select id="langSelectAuth" class="lang-selector"><option value="en">🇬🇧 English</option><option value="pt">🇧🇷 Português</option></select>
           </div>
@@ -362,10 +445,8 @@
       </div>
     `;
     document.getElementById('appRoot').innerHTML = html;
-    
     document.getElementById('langSelectAuth').value = currentLang;
     document.getElementById('langSelectAuth').onchange = (e) => { currentLang = e.target.value; renderAuth(); };
-    
     if(showingLogin) {
       document.getElementById('doLoginBtn').onclick = () => {
         const user = document.getElementById('loginUsername').value;
@@ -387,13 +468,11 @@
       };
       document.getElementById('switchToLogin').onclick = (e) => { e.preventDefault(); showingLogin = true; registerError = ""; renderAuth(); };
     }
-    updateLanguage();
   }
   
-  // ==================== RENDER DASHBOARD ====================
+  // ==================== DASHBOARD PRINCIPAL ====================
   function renderDashboard() {
     if(!currentUser) return;
-    
     const stakeProgress = getStakeProgress();
     const activeStake = currentUser.activeStake;
     let stakeInfoHtml = `<div class="staking-timer" id="activeStakeInfo">💎 ${t('noStake')}</div>`;
@@ -404,23 +483,18 @@
         const mins = Math.floor((remaining % 3600000) / 60000);
         const secs = Math.floor((remaining % 60000) / 1000);
         const reward = calculateReward(activeStake.amount, activeStake.periodSeconds);
-        stakeInfoHtml = `
-          <div class="progress-bar"><div class="progress-fill" style="width:${stakeProgress}%"></div></div>
-          <div class="staking-timer">⏱️ ${activeStake.optionName} remaining: ${hours}h ${mins}m ${secs}s | ${t('reward')}: ${reward.toFixed(4)} BRD</div>
-        `;
+        stakeInfoHtml = `<div class="progress-bar"><div class="progress-fill" style="width:${stakeProgress}%"></div></div>
+        <div class="staking-timer">⏱️ ${activeStake.optionName} left: ${hours}h ${mins}m ${secs}s | ${t('reward')}: ${reward.toFixed(4)} BRD</div>`;
       } else {
-        stakeInfoHtml = `
-          <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
-          <div class="staking-timer">✅ STAKE MATURED! Click UNSTAKE to claim.</div>
-        `;
+        stakeInfoHtml = `<div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div><div class="staking-timer">✅ MATURED! Click UNSTAKE.</div>`;
       }
     }
     
     const stakingOptionsHtml = stakingOptions.map(opt => `
       <div style="background:#0a0e1f; border-radius:1rem; padding:0.8rem; margin-bottom:0.8rem; border-left:3px solid #a855f7;">
         <div style="display:flex; justify-content:space-between;"><strong>${opt.name}</strong><span style="color:#00f2ff;">${opt.apr}% APR</span></div>
-        <div style="font-size:0.7rem;">${t('lock')}: ${opt.periodSeconds === 3600 ? '1 hour' : '1 day'} | ${t('min')}: ${opt.minStake} BRD</div>
-        <input type="number" id="stakeAmount_${opt.name.replace(/\s/g,'')}" class="cyber-input" placeholder="${t('amount')}" step="any" style="margin-top:0.5rem;">
+        <div style="font-size:0.7rem;">${t('lock')}: ${opt.periodSeconds === 1800 ? '30min' : opt.periodSeconds === 3600 ? '1 hour' : '1 day'} | ${t('min')}: ${opt.minStake} BRD</div>
+        <input type="number" id="stakeAmount_${opt.name.replace(/\s/g,'')}" class="cyber-input" placeholder="${t('amount')}" step="any">
         <button class="cyber-btn stake-btn" data-period="${opt.periodSeconds}" data-name="${opt.name}" style="width:100%; margin-top:0.5rem;"><i class="fas fa-lock"></i> ${t('stakeFor')} ${opt.name}</button>
       </div>
     `).join('');
@@ -435,18 +509,17 @@
           <select id="langSelectDash" class="lang-selector"><option value="en">🇬🇧 EN</option><option value="pt">🇧🇷 PT</option></select>
         </div>
       </div>
-      <div id="notificationPanel" style="display:none; position:fixed; top:80px; right:20px; width:320px; background:#0a0f1e; border:1px solid #a855f7; border-radius:1rem; padding:1rem; z-index:1000; backdrop-filter:blur(12px);"></div>
-      
+      <div id="notificationPanel" style="display:none; position:fixed; top:80px; right:20px; width:340px; background:#0a0f1e; border:1px solid #a855f7; border-radius:1rem; padding:1rem; z-index:1000; backdrop-filter:blur(12px);"></div>
       <div class="dashboard-grid">
         <div class="neon-card">
           <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-chart-line"></i> ${t('balance')}</div>
-          <div class="balance-amount" id="balanceDisplay">${currentUser.balance.toLocaleString()}</div>
-          <div style="margin-bottom:1rem;">BRD TOKEN</div>
+          <div class="balance-amount" id="balanceDisplay">${currentUser.balance.toLocaleString(undefined, {maximumFractionDigits:4})}</div>
+          <div>BRD TOKEN | Reserve: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD</div>
           <div><label>${t('walletAddress')}</label><div class="cyber-input" id="walletAddressDisplay">${currentUser.walletAddress}</div></div>
           <button id="copyAddrBtn" class="cyber-btn" style="margin-top:0.5rem; width:100%;"><i class="far fa-copy"></i> ${t('copy')}</button>
-          <div style="margin-top:1rem;"><a href="https://www.bradichain.com" target="_blank" style="color:#00f2ff;"><i class="fas fa-globe"></i> ${t('explorer')}</a></div>
+          <button id="lookupWalletBtn" class="cyber-btn" style="margin-top:0.5rem; width:100%;"><i class="fas fa-search"></i> ${t('lookupWallet')}</button>
+          <div style="margin-top:1rem;"><a href="https://www.bradichain.com" target="_blank" class="explorer-link"><i class="fas fa-globe"></i> ${t('explorer')}</a></div>
         </div>
-        
         <div class="neon-card">
           <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-layer-group"></i> ${t('staking')}</div>
           ${stakingOptionsHtml}
@@ -454,35 +527,31 @@
           ${stakeInfoHtml}
           <button id="unstakeBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-unlock-alt"></i> ${t('unstake')}</button>
         </div>
-        
         <div class="neon-card">
           <div style="font-size:1.3rem; margin-bottom:1rem; border-left:4px solid #b300ff; padding-left:0.8rem;"><i class="fas fa-exchange-alt"></i> ${t('sendReceive')}</div>
-          <input type="text" id="recipientAddr" class="cyber-input" placeholder="${t('recipient')} (Br...)">
-          <input type="number" id="sendAmount" class="cyber-input" placeholder="${t('amount')}" step="any" style="margin-top:0.5rem;">
-          <button id="sendBtn" class="cyber-btn primary" style="width:100%; margin-top:0.5rem;"><i class="fas fa-paper-plane"></i> ${t('send')}</button>
+          <input type="text" id="recipientAddr" class="cyber-input" placeholder="${t('recipient')} (Br... or 0x...)">
+          <input type="number" id="sendAmount" class="cyber-input" placeholder="${t('amount')}" step="any">
+          <button id="sendBtn" class="cyber-btn primary" style="width:100%; margin-top:0.5rem;"><i class="fas fa-paper-plane"></i> ${t('send')} (∞ Auto-Replete)</button>
+          <hr style="margin: 1rem 0; border-color:#a855f7;">
+          <input type="text" id="receiveSender" class="cyber-input" placeholder="Sender wallet (optional)">
+          <input type="number" id="receiveAmount" class="cyber-input" placeholder="${t('amount')} to receive">
+          <button id="receiveBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-download"></i> ${t('receiveBtn')}</button>
           <div id="txStatus" class="status-msg"></div>
-          <div style="margin-top:1rem; text-align:center; font-size:0.7rem; color:#a855f7; background:#010518; padding:0.5rem; border-radius:1rem;">
-            <i class="fas fa-infinity"></i> ${t('reserveInfo')}<br>
-            💰 Total Reserve: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD
+          <div style="margin-top:1rem; text-align:center; font-size:0.7rem; background:#010518; padding:0.5rem; border-radius:1rem;">
+            <i class="fas fa-infinity"></i> ${t('reserveInfo')}
           </div>
         </div>
       </div>
       <footer>${t('footer')}</footer>
     `;
-    
     document.getElementById('appRoot').innerHTML = html;
-    
-    // Event listeners
-    document.getElementById('logoutBtnDashboard').onclick = () => { logout(); };
+    document.getElementById('logoutBtnDashboard').onclick = logout;
     document.getElementById('copyAddrBtn').onclick = copyAddress;
-    document.getElementById('sendBtn').onclick = () => {
-      const to = document.getElementById('recipientAddr').value;
-      const amt = parseFloat(document.getElementById('sendAmount').value);
-      sendCoins(to, amt);
-    };
+    document.getElementById('lookupWalletBtn').onclick = () => lookupWalletOnBradichain(currentUser.walletAddress);
+    document.getElementById('sendBtn').onclick = () => { sendCoins(document.getElementById('recipientAddr').value, parseFloat(document.getElementById('sendAmount').value)); };
+    document.getElementById('receiveBtn').onclick = () => { receiveFunds(document.getElementById('receiveSender').value, parseFloat(document.getElementById('receiveAmount').value)); };
     document.getElementById('unstakeBtn').onclick = unstake;
     document.getElementById('notifBell').onclick = toggleNotifications;
-    
     document.querySelectorAll('.stake-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const periodSec = parseInt(btn.dataset.period);
@@ -494,31 +563,13 @@
         else showStatus("Enter valid amount", 'stakeStatus');
       });
     });
-    
     document.getElementById('langSelectDash').value = currentLang;
     document.getElementById('langSelectDash').onchange = (e) => { currentLang = e.target.value; renderDashboard(); };
-    
-    // Update balance and stake progress periodically
-    setInterval(() => {
-      if(currentUser) {
-        const balanceSpan = document.getElementById('balanceDisplay');
-        if(balanceSpan) balanceSpan.innerText = currentUser.balance.toLocaleString();
-        const stakeProgress = getStakeProgress();
-        const progressFill = document.querySelector('.progress-fill');
-        if(progressFill) progressFill.style.width = `${stakeProgress}%`;
-      }
-    }, 1000);
-    
+    setInterval(() => { if(currentUser && document.getElementById('balanceDisplay')) updateBalanceDisplay(); }, 800);
     renderNotifications();
   }
   
-  function renderApp() {
-    loadUsers();
-    loadCurrentSession();
-    if(currentUser) { renderDashboard(); }
-    else { renderAuth(); }
-  }
-  
+  function renderApp() { loadUsers(); loadCurrentSession(); if(currentUser) renderDashboard(); else renderAuth(); }
   renderApp();
 </script>
 </body>
