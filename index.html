@@ -7,12 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Orbitron', monospace;
       background: linear-gradient(135deg, #0a0f1e 0%, #03050b 100%);
@@ -22,7 +17,6 @@
       position: relative;
       overflow-x: hidden;
     }
-
     body::before {
       content: '';
       position: fixed;
@@ -34,7 +28,6 @@
       pointer-events: none;
       z-index: 0;
     }
-
     body::after {
       content: '';
       position: fixed;
@@ -46,14 +39,7 @@
       pointer-events: none;
       z-index: 0;
     }
-
-    .container {
-      max-width: 1440px;
-      margin: 0 auto;
-      position: relative;
-      z-index: 1;
-    }
-
+    .container { max-width: 1440px; margin: 0 auto; position: relative; z-index: 1; }
     .glass-card {
       background: rgba(10, 15, 30, 0.7);
       backdrop-filter: blur(12px);
@@ -62,13 +48,11 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(168, 85, 247, 0.2);
       transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-
     .glass-card:hover {
       border-color: rgba(0, 242, 255, 0.6);
       box-shadow: 0 12px 48px rgba(0, 242, 255, 0.25);
       transform: translateY(-5px);
     }
-
     .btn {
       background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(0, 242, 255, 0.1));
       border: 1px solid rgba(168, 85, 247, 0.5);
@@ -87,7 +71,6 @@
       position: relative;
       overflow: hidden;
     }
-
     .btn::before {
       content: '';
       position: absolute;
@@ -100,53 +83,20 @@
       transform: translate(-50%, -50%);
       transition: width 0.6s, height 0.6s;
     }
-
-    .btn:hover::before {
-      width: 300px;
-      height: 300px;
-    }
-
+    .btn:hover::before { width: 300px; height: 300px; }
     .btn:hover {
       background: linear-gradient(135deg, #a855f7, #00f2ff);
       border-color: transparent;
       transform: translateY(-2px);
       box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4);
     }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #a855f7, #3b82f6);
-      border: none;
-      box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
-    }
-
-    .btn-success {
-      background: linear-gradient(135deg, #00cc88, #00f2ff);
-      border: none;
-      box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 1px solid #a855f7;
-    }
-
-    .btn-outline:hover {
-      background: #a855f7;
-      border-color: transparent;
-    }
-
-    .btn-bradichain {
-      background: linear-gradient(135deg, #ff6b35, #f7931a);
-      border: none;
-      box-shadow: 0 4px 15px rgba(247, 147, 26, 0.3);
-    }
-
-    .btn-bradichain:hover {
-      background: linear-gradient(135deg, #f7931a, #ff6b35);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(247, 147, 26, 0.5);
-    }
-
+    .btn-primary { background: linear-gradient(135deg, #a855f7, #3b82f6); border: none; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3); }
+    .btn-success { background: linear-gradient(135deg, #00cc88, #00f2ff); border: none; box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3); }
+    .btn-outline { background: transparent; border: 1px solid #a855f7; }
+    .btn-outline:hover { background: #a855f7; border-color: transparent; }
+    .btn-bradichain { background: linear-gradient(135deg, #ff6b35, #f7931a); border: none; box-shadow: 0 4px 15px rgba(247, 147, 26, 0.3); }
+    .btn-bradichain:hover { background: linear-gradient(135deg, #f7931a, #ff6b35); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(247, 147, 26, 0.5); }
+    .btn-danger { background: linear-gradient(135deg, #ff3333, #cc0000); border: none; }
     .input {
       background: rgba(1, 5, 24, 0.8);
       border: 1px solid rgba(168, 85, 247, 0.4);
@@ -159,13 +109,11 @@
       transition: all 0.3s ease;
       font-size: 14px;
     }
-
     .input:focus {
       border-color: #00f2ff;
       box-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
       background: rgba(1, 5, 24, 1);
     }
-
     .header {
       background: rgba(10, 15, 30, 0.6);
       backdrop-filter: blur(12px);
@@ -179,16 +127,9 @@
       flex-wrap: wrap;
       gap: 16px;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
+    .logo { display: flex; align-items: center; gap: 12px; }
     .logo-icon {
-      width: 50px;
-      height: 50px;
+      width: 50px; height: 50px;
       background: linear-gradient(135deg, #a855f7, #00f2ff);
       border-radius: 18px;
       display: flex;
@@ -197,12 +138,10 @@
       font-size: 24px;
       animation: pulse 2s infinite;
     }
-
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
       50% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0); }
     }
-
     .logo h1 {
       font-size: 1.6rem;
       background: linear-gradient(135deg, #fff, #a855f7);
@@ -210,7 +149,6 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-
     .balance-card {
       text-align: center;
       padding: 30px;
@@ -218,14 +156,7 @@
       border-radius: 28px;
       margin-bottom: 24px;
     }
-
-    .balance-label {
-      font-size: 14px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: #a855f7;
-    }
-
+    .balance-label { font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #a855f7; }
     .balance-amount {
       font-size: 3.5rem;
       font-weight: 800;
@@ -233,24 +164,11 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      text-shadow: none;
       word-break: break-all;
     }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-bottom: 24px;
-    }
-
-    @media (max-width: 1100px) {
-      .grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 768px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     .card-header {
       font-size: 1.2rem;
       font-weight: 600;
@@ -261,12 +179,7 @@
       align-items: center;
       gap: 10px;
     }
-
-    .card-header i {
-      color: #a855f7;
-      font-size: 1.3rem;
-    }
-
+    .card-header i { color: #a855f7; font-size: 1.3rem; }
     .staking-item {
       background: rgba(1, 5, 24, 0.5);
       border-radius: 20px;
@@ -275,20 +188,8 @@
       transition: all 0.3s ease;
       border-left: 3px solid #a855f7;
     }
-
-    .staking-item:hover {
-      background: rgba(168, 85, 247, 0.1);
-      transform: translateX(5px);
-    }
-
-    .progress-container {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      height: 12px;
-      overflow: hidden;
-      margin: 12px 0;
-    }
-
+    .staking-item:hover { background: rgba(168, 85, 247, 0.1); transform: translateX(5px); }
+    .progress-container { background: rgba(255, 255, 255, 0.1); border-radius: 20px; height: 12px; overflow: hidden; margin: 12px 0; }
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #a855f7, #00f2ff);
@@ -297,7 +198,6 @@
       position: relative;
       overflow: hidden;
     }
-
     .progress-fill::after {
       content: '';
       position: absolute;
@@ -308,12 +208,7 @@
       background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
       animation: shimmer 2s infinite;
     }
-
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
     .wallet-box {
       background: rgba(1, 5, 24, 0.6);
       border-radius: 20px;
@@ -324,126 +219,35 @@
       word-break: break-all;
       border: 1px dashed rgba(168, 85, 247, 0.3);
     }
-
-    .history-container {
-      max-height: 350px;
-      overflow-y: auto;
-      border-radius: 20px;
-    }
-
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    .history-table th {
-      padding: 12px;
-      text-align: left;
-      color: #a855f7;
-      font-weight: 600;
-      border-bottom: 1px solid rgba(168, 85, 247, 0.3);
-    }
-
-    .history-table td {
-      padding: 12px;
-      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
-    }
-
-    .history-table tr:hover {
-      background: rgba(168, 85, 247, 0.05);
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 10px;
-      font-weight: 600;
-    }
-
+    .history-container { max-height: 350px; overflow-y: auto; border-radius: 20px; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .history-table th { padding: 12px; text-align: left; color: #a855f7; font-weight: 600; border-bottom: 1px solid rgba(168, 85, 247, 0.3); }
+    .history-table td { padding: 12px; border-bottom: 1px solid rgba(168, 85, 247, 0.15); }
+    .history-table tr:hover { background: rgba(168, 85, 247, 0.05); }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 600; }
     .badge-sent { background: rgba(255, 102, 102, 0.2); color: #ff6666; }
     .badge-received { background: rgba(102, 255, 102, 0.2); color: #66ff66; }
     .badge-stake { background: rgba(255, 170, 102, 0.2); color: #ffaa66; }
     .badge-reward { background: rgba(102, 255, 204, 0.2); color: #66ffcc; }
-
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #0a0c1a; border-radius: 10px; }
     ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 10px; }
-
-    footer {
-      text-align: center;
-      padding: 24px;
-      font-size: 11px;
-      opacity: 0.6;
-      border-top: 1px solid rgba(168, 85, 247, 0.2);
-      margin-top: 32px;
-    }
-
-    .status-msg {
-      font-size: 12px;
-      margin-top: 12px;
-      text-align: center;
-      padding: 8px;
-      border-radius: 12px;
-    }
-
+    footer { text-align: center; padding: 24px; font-size: 11px; opacity: 0.6; border-top: 1px solid rgba(168, 85, 247, 0.2); margin-top: 32px; }
+    .status-msg { font-size: 12px; margin-top: 12px; text-align: center; padding: 8px; border-radius: 12px; }
     .status-success { background: rgba(0, 255, 136, 0.1); color: #00ff88; }
     .status-error { background: rgba(255, 0, 85, 0.1); color: #ff0055; }
     .status-info { background: rgba(0, 200, 255, 0.1); color: #00ccff; }
-
-    .inline-buttons {
-      display: flex;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    hr {
-      border-color: rgba(168, 85, 247, 0.2);
-      margin: 20px 0;
-    }
-
-    /* Search Wallet Section */
-    .search-wallet-section {
-      margin-bottom: 24px;
-    }
-
-    .search-wallet-box {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .search-wallet-box .input {
-      flex: 1;
-    }
-
-    .result-box {
-      margin-top: 15px;
-      padding: 15px;
-      border-radius: 20px;
-      display: none;
-    }
-
-    .result-box.show {
-      display: block;
-      animation: fadeIn 0.5s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Bradichain Badge */
-    .bradichain-badge {
-      background: linear-gradient(135deg, #f7931a, #ff6b35);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: bold;
-      color: white;
-    }
+    .inline-buttons { display: flex; gap: 12px; margin-top: 12px; }
+    hr { border-color: rgba(168, 85, 247, 0.2); margin: 20px 0; }
+    .search-wallet-section { margin-bottom: 24px; }
+    .search-wallet-box { display: flex; gap: 12px; flex-wrap: wrap; }
+    .search-wallet-box .input { flex: 1; }
+    .result-box { margin-top: 15px; padding: 15px; border-radius: 20px; display: none; }
+    .result-box.show { display: block; animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .bradichain-badge { background: linear-gradient(135deg, #f7931a, #ff6b35); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; }
+    .clear-data-btn { background: rgba(255, 0, 85, 0.2); border: 1px solid #ff0055; color: #ff0055; }
+    .clear-data-btn:hover { background: #ff0055; color: white; }
   </style>
 </head>
 <body>
@@ -474,6 +278,18 @@
       const index = users.findIndex(u => u.id === currentUser.id);
       if(index !== -1) users[index] = currentUser;
       saveUsers();
+    }
+  }
+  
+  // Limpar todos os dados
+  function clearAllData() {
+    if(confirm('⚠️ ATENÇÃO! Isso irá apagar TODOS os usuários e dados. Você tem certeza?')) {
+      localStorage.removeItem('bradicoin_premium_data');
+      localStorage.removeItem('bradicoin_premium_session');
+      users = [];
+      currentUser = null;
+      alert('✅ Todos os dados foram limpos! Você pode criar novas contas.');
+      render();
     }
   }
   
@@ -584,7 +400,6 @@
     resultDiv.classList.add('show');
     
     try {
-      // Consultar saldo via API
       const response = await fetch(`${API_URL}/api/balance/${address}`);
       const data = await response.json();
       
@@ -596,44 +411,29 @@
         found = true;
       }
       
-      if (found || balance > 0) {
-        resultDiv.innerHTML = `
-          <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
-              <div>
-                <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET FOUND</span>
-                <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;"><i class="fas fa-link"></i> Bradichain Mainnet</span>
-              </div>
-              <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
-                <i class="fas fa-external-link-alt"></i> Open on Bradichain
-              </button>
+      resultDiv.innerHTML = `
+        <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid ${found ? '#00ff66' : '#ffc800'}; border-radius: 20px; padding: 20px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+            <div>
+              <span class="badge" style="background: ${found ? '#00ff66' : '#ffc800'}; color: #000;">${found ? '✅ WALLET FOUND' : '⚠️ WALLET NOT FOUND'}</span>
+              <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;"><i class="fas fa-link"></i> Bradichain Mainnet</span>
             </div>
-            <div class="metric-row"><span class="metric-label">📍 Wallet Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
-            <div class="metric-row"><span class="metric-label">💰 Current Balance:</span><span class="metric-value" style="color: #00ff66; font-size: 1.5rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
-            <div class="metric-row"><span class="metric-label">💎 Currency:</span><span class="metric-value">BRD (Bradicoin)</span></div>
-            <div class="metric-row"><span class="metric-label">🔗 Network:</span><span class="metric-value">Bradichain Mainnet</span></div>
-            <div class="metric-row"><span class="metric-label">⏱️ Last Check:</span><span class="metric-value">${new Date().toLocaleString()}</span></div>
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
-              <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copy Address</button>
-              <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> View Transactions</button>
-            </div>
+            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+              <i class="fas fa-external-link-alt"></i> Open on Bradichain
+            </button>
           </div>
-        `;
-        showStatus(`✅ Wallet found! Balance: ${balance.toLocaleString()} BRD`, 'searchStatus', 'success');
-      } else {
-        resultDiv.innerHTML = `
-          <div style="background: linear-gradient(135deg, rgba(255,100,100,0.1), rgba(255,200,0,0.05)); border: 2px solid #ffc800; border-radius: 20px; padding: 20px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 10px;">⚠️</div>
-            <h3 style="color: #ffc800;">Wallet Not Found</h3>
-            <p style="margin: 15px 0;">The address <code style="color: cyan;">${address}</code> was not found on the Bradicoin blockchain.</p>
-            <p style="font-size: 12px;">💡 Make sure the address starts with "Br" and is correctly typed.</p>
-            <div style="margin-top: 20px;">
-              <button onclick="openBradichainExplorer('${address}')" class="btn btn-outline" style="padding: 8px 16px;">🔍 Try on Bradichain Explorer</button>
-            </div>
+          <div class="metric-row"><span class="metric-label">📍 Wallet Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+          <div class="metric-row"><span class="metric-label">💰 Current Balance:</span><span class="metric-value" style="color: #00ff66; font-size: 1.5rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
+          <div class="metric-row"><span class="metric-label">💎 Currency:</span><span class="metric-value">BRD (Bradicoin)</span></div>
+          <div class="metric-row"><span class="metric-label">🔗 Network:</span><span class="metric-value">Bradichain Mainnet</span></div>
+          <div class="metric-row"><span class="metric-label">⏱️ Last Check:</span><span class="metric-value">${new Date().toLocaleString()}</span></div>
+          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copy Address</button>
+            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> View Transactions</button>
           </div>
-        `;
-        showStatus(`⚠️ Wallet not found on Bradichain`, 'searchStatus', 'error');
-      }
+        </div>
+      `;
+      showStatus(`✅ Wallet consultation completed`, 'searchStatus', 'success');
     } catch (error) {
       resultDiv.innerHTML = `
         <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
@@ -824,6 +624,7 @@
           <h1 style="font-size: 1.8rem; margin-bottom: 10px;">BRADICOIN</h1>
           <p style="color: #a855f7; margin-bottom: 20px;">RESERVE FUND</p>
           <p style="color: #00f2ff; font-size: 12px; margin-bottom: 30px;">💎 Total Reserve: ${RESERVE_SUPPLY.toLocaleString()} BRD</p>
+          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/3 registered</p>
           
           ${showLogin ? `
             <input type="text" id="loginUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
@@ -839,6 +640,10 @@
             <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
             <p style="margin-top: 24px; font-size: 13px;">Already have an account? <a href="#" id="switchLogin" style="color: #00f2ff;">Sign In</a></p>
           `}
+          
+          <hr style="margin: 30px 0 20px 0;">
+          <button id="clearDataBtn" class="btn clear-data-btn" style="width: 100%;"><i class="fas fa-trash-alt"></i> Clear All Data (Reset)</button>
+          <p style="font-size: 10px; margin-top: 15px; color: #888;">⚠️ This will delete all accounts and create new ones</p>
         </div>
       </div>
     `;
@@ -863,6 +668,8 @@
       };
       document.getElementById('switchLogin').onclick = (e) => { e.preventDefault(); showLogin = true; loginError = ''; renderAuth(); };
     }
+    
+    document.getElementById('clearDataBtn').onclick = clearAllData;
   }
   
   function renderDashboard() {
@@ -915,7 +722,7 @@
           <div class="logo-icon">💰</div>
           <h1>BRADICOIN RESERVE</h1>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
@@ -940,7 +747,6 @@
       </div>
       
       <div class="grid">
-        <!-- Wallet Info -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-wallet"></i> My Wallet</div>
           <div class="wallet-box">
@@ -958,7 +764,6 @@
           </div>
         </div>
         
-        <!-- Staking -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-lock"></i> Staking Pools</div>
           ${stakeOptionsHtml}
@@ -968,7 +773,6 @@
           <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim Rewards</button>
         </div>
         
-        <!-- Send / Receive -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-exchange-alt"></i> Send / Receive</div>
           <input type="text" id="sendTo" class="input" placeholder="📍 Recipient Address (Br...)" style="margin-bottom: 12px;">
@@ -983,7 +787,6 @@
         </div>
       </div>
       
-      <!-- History -->
       <div class="glass-card" style="padding: 24px;">
         <div class="card-header"><i class="fas fa-history"></i> Transaction History</div>
         <div class="history-container">
