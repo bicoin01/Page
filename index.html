@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Bradicoin Reserve Fund | BRD Token | Histórico de Transações</title>
+  <title>Bradicoin Reserve Fund | BRD Token</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
@@ -14,123 +14,42 @@
       color: #e0e5ff;
       min-height: 100vh;
       padding: 1.5rem;
-      letter-spacing: 0.5px;
     }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #0a0c1a; }
-    ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 8px; }
-    .container { max-width: 1400px; margin: 0 auto; }
-    
+    .container { max-width: 1200px; margin: 0 auto; }
     .neon-card {
       background: rgba(8, 12, 26, 0.85);
       backdrop-filter: blur(12px);
       border-radius: 2rem;
       border: 1px solid #a855f7;
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
       padding: 1.5rem;
-      transition: all 0.3s ease;
+      margin-bottom: 1.5rem;
     }
-    .neon-card:hover { border-color: #00f2ff; box-shadow: 0 0 30px rgba(0, 242, 255, 0.4); transform: translateY(-3px); }
-    
     .cyber-btn {
       background: rgba(0,0,0,0.6);
       border: 1.5px solid #a855f7;
       color: #e0e5ff;
-      font-family: 'Orbitron', monospace;
-      font-weight: 600;
       padding: 0.7rem 1.5rem;
       border-radius: 2rem;
       cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      font-family: 'Orbitron', monospace;
     }
-    .cyber-btn:hover { background: #a855f7; border-color: #00f2ff; box-shadow: 0 0 15px #a855f7; transform: translateY(-2px); }
     .cyber-btn.primary { background: linear-gradient(95deg, #a855f7, #3b82f6); border: none; }
-    .cyber-btn.wallet-btn { background: linear-gradient(95deg, #00cc88, #00f2ff); border: none; }
-    
     .cyber-input {
       background: #010518;
       border: 1px solid #a855f7;
-      padding: 0.8rem 1rem;
+      padding: 0.8rem;
       border-radius: 1rem;
       color: #e0e5ff;
-      font-family: 'Orbitron', monospace;
       width: 100%;
-      outline: none;
+      margin: 0.5rem 0;
     }
-    .cyber-input:focus { border-color: #00f2ff; box-shadow: 0 0 10px #00f2ff; }
-    
-    .auth-container { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-    .auth-box { max-width: 500px; width: 100%; text-align: center; }
-    .logo-large {
-      width: 100px; height: 100px;
-      background: linear-gradient(135deg, #a855f7, #00f2ff);
-      border-radius: 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 1.5rem;
-      font-size: 3rem;
-      color: #0a0f1e;
-    }
-    
-    .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
-    .staking-timer { font-size: 0.75rem; color: #00f2ff; text-align: center; margin-top: 0.5rem; }
-    .progress-bar { background: #1a1f30; border-radius: 1rem; height: 8px; overflow: hidden; margin: 0.5rem 0; }
-    .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #a855f7, #00f2ff); transition: width 0.3s; }
-    .balance-amount { font-size: 2.5rem; font-weight: 800; color: #00f2ff; text-shadow: 0 0 10px #00f2ff; word-break: break-all; }
-    .top-bar {
-      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
-      gap: 1rem; margin-bottom: 2rem; padding: 1rem 1.5rem;
-      background: rgba(12,20,35,0.7); backdrop-filter: blur(12px);
-      border-radius: 2rem; border: 1px solid #a855f7;
-    }
-    .lang-selector {
-      background: #0f1422dd; border: 1px solid #a855f7; border-radius: 2rem;
-      padding: 0.5rem; font-family: 'Orbitron', monospace; color: #e0e5ff; cursor: pointer;
-    }
-    .notification-badge { position: relative; cursor: pointer; }
-    .badge-count {
-      position: absolute; top: -8px; right: -8px; background: #ff0055;
-      border-radius: 50%; width: 18px; height: 18px; font-size: 10px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .status-msg { font-size: 0.7rem; margin-top: 0.5rem; color: #00f2ff; text-align: center; }
+    .balance-amount { font-size: 2rem; color: #00f2ff; word-break: break-all; }
+    .status-msg { font-size: 0.7rem; color: #00f2ff; margin-top: 0.5rem; }
     .alert { color: #ff0055; }
-    .success { color: #00ff88; }
-    footer { text-align: center; margin-top: 2rem; font-size: 0.7rem; opacity: 0.7; }
-    @media (max-width: 700px) { body { padding: 1rem; } }
-    .explorer-link { color: #00f2ff; text-decoration: none; border-bottom: 1px dashed #a855f7; }
-    .api-badge { background: #00cc88; color: #000; padding: 0.2rem 0.5rem; border-radius: 1rem; font-size: 0.6rem; margin-left: 0.5rem; }
-    .wallet-info { font-family: monospace; font-size: 0.7rem; background: #00000055; padding: 0.5rem; border-radius: 0.5rem; word-break: break-all; }
-    .seed-preview { font-size: 0.65rem; color: #a855f7; cursor: pointer; }
-    
-    /* Estilos do Histórico */
-    .history-table-container {
-      max-height: 300px;
-      overflow-y: auto;
-      border-radius: 1rem;
-      margin-top: 1rem;
-    }
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.7rem;
-    }
-    .history-table th, .history-table td {
-      padding: 0.6rem;
-      text-align: left;
-      border-bottom: 1px solid #a855f7;
-    }
-    .history-table th { color: #a855f7; font-weight: 600; }
-    .history-table tr:hover { background: rgba(168, 85, 247, 0.1); }
-    .tx-sent { color: #ff6666; }
-    .tx-received { color: #66ff66; }
-    .tx-stake { color: #ffcc66; }
-    .tx-reward { color: #66ffcc; }
-    .timestamp { font-size: 0.6rem; color: #888; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+    .history-table td, .history-table th { padding: 0.5rem; border-bottom: 1px solid #a855f7; }
   </style>
 </head>
 <body>
@@ -139,135 +58,67 @@
 <script>
   // ==================== CONFIGURAÇÃO ====================
   const API_BASE_URL = 'https://bradicoin-api.onrender.com';
-  const RESERVE_TOTAL_SUPPLY = 99999999999999999;
   
-  // Lista de palavras para seed phrase
-  const wordList = [
-    "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse",
-    "access", "accident", "account", "accuse", "achieve", "acid", "acoustic", "acquire", "across", "act",
-    "action", "actor", "actress", "actual", "adapt", "add", "addict", "address", "adjust", "admit",
-    "adult", "advance", "advice", "aerobic", "affair", "afford", "afraid", "africa", "after", "again"
-  ];
-  
-  // ==================== USER SYSTEM ====================
+  // ==================== USER SYSTEM (LOCAL) ====================
   let users = [];
   let currentUser = null;
-  let currentLang = 'en';
-  
-  function generateSeedPhrase() {
-    const words = [];
-    for(let i = 0; i < 12; i++) {
-      words.push(wordList[Math.floor(Math.random() * wordList.length)]);
-    }
-    return words.join(' ');
-  }
-  
-  function generateWalletAddress(seed) {
-    const hash = seed.split(' ').join('').substring(0, 32);
-    const randomPart = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    return `Br${hash}${randomPart.substring(0, 24)}`;
-  }
-  
-  function generateFullWallet(username) {
-    const seedPhrase = generateSeedPhrase();
-    const walletAddress = generateWalletAddress(seedPhrase + username);
-    return { walletAddress, seedPhrase };
-  }
   
   function loadUsers() {
-    const stored = localStorage.getItem('bradicoin_reserve_users');
-    if(stored) { 
-      users = JSON.parse(stored);
-      users.forEach(u => {
-        if(!u.referralCode) u.referralCode = "RES" + Math.random().toString(36).substring(2, 8).toUpperCase();
-        if(!u.activeStake) u.activeStake = null;
-        if(!u.seedPhrase) u.seedPhrase = generateSeedPhrase();
-        if(!u.walletAddress || !u.walletAddress.startsWith('Br')) {
-          const wallet = generateFullWallet(u.username);
-          u.walletAddress = wallet.walletAddress;
-          u.seedPhrase = wallet.seedPhrase;
-        }
-        if(typeof u.balance !== 'number') u.balance = RESERVE_TOTAL_SUPPLY;
-        if(!u.transactionHistory) u.transactionHistory = [];
-      });
-    } else { 
-      users = []; 
-      localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users));
-    }
+    const stored = localStorage.getItem('bradicoin_users');
+    if(stored) users = JSON.parse(stored);
+    else users = [];
   }
   
-  function saveUsers() { localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
-  function canRegister() { return users.length < 3; }
-  
-  function addTransactionToHistory(type, details, amount, address = null) {
-    if(!currentUser) return;
-    if(!currentUser.transactionHistory) currentUser.transactionHistory = [];
-    
-    const now = new Date();
-    const formattedDate = now.toLocaleString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-    
-    currentUser.transactionHistory.unshift({
-      id: Date.now(),
-      type: type,
-      details: details,
-      amount: amount,
-      address: address,
-      date: now.toISOString(),
-      formattedDate: formattedDate,
-      timestamp: now.getTime()
-    });
-    
-    // Manter apenas últimas 50 transações
-    if(currentUser.transactionHistory.length > 50) currentUser.transactionHistory.pop();
-    saveUserData();
-  }
+  function saveUsers() { localStorage.setItem('bradicoin_users', JSON.stringify(users)); }
   
   function registerUser(username, password) {
-    if(!canRegister()) return { success: false, message: "Registration limit reached. Maximum 3 users allowed." };
-    if(users.find(u => u.username === username)) return { success: false, message: "Username already exists." };
-    if(username.length < 3 || password.length < 4) return { success: false, message: "Username (min 3 chars) and password (min 4 chars) required." };
+    if(users.length >= 3) return { success: false, message: "Maximum 3 users allowed" };
+    if(users.find(u => u.username === username)) return { success: false, message: "Username exists" };
+    if(username.length < 3) return { success: false, message: "Username min 3 characters" };
     
-    const { walletAddress, seedPhrase } = generateFullWallet(username);
+    // Gerar wallet local
+    const walletAddress = `Br${Date.now().toString(36)}${Math.random().toString(36).substring(2, 15)}`;
+    const seedPhrase = Array(12).fill(0).map(() => {
+      const words = ["abandon","ability","able","about","above","absent","absorb","abstract","absurd","abuse","access","accident","account"];
+      return words[Math.floor(Math.random() * words.length)];
+    }).join(' ');
     
     const newUser = {
       id: Date.now(),
-      username: username,
-      password: password,
-      balance: RESERVE_TOTAL_SUPPLY,
-      walletAddress: walletAddress,
-      seedPhrase: seedPhrase,
-      activeStake: null,
-      referralCode: "RES" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-      transactionHistory: []
+      username,
+      password,
+      walletAddress,
+      seedPhrase,
+      balance: 99999999999999999,
+      transactions: []
     };
     users.push(newUser);
     saveUsers();
     
-    return { success: true, message: `Account created! Wallet: ${walletAddress.substring(0, 20)}... | Balance: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD`, walletAddress, seedPhrase };
+    // Tentar registrar na API também
+    fetch(`${API_BASE_URL}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    }).catch(e => console.log('API register note:', e));
+    
+    return { success: true, message: "Account created!", walletAddress, seedPhrase };
   }
   
   function loginUser(username, password) {
     const user = users.find(u => u.username === username && u.password === password);
     if(user) {
       currentUser = user;
-      if(!currentUser.transactionHistory) currentUser.transactionHistory = [];
-      localStorage.setItem('bradicoin_reserve_current', JSON.stringify({ id: user.id, username: user.username }));
+      localStorage.setItem('bradicoin_current', JSON.stringify({ id: user.id }));
       return { success: true };
     }
-    return { success: false, message: "Invalid username or password." };
+    return { success: false, message: "Invalid credentials" };
   }
   
-  function logout() {
-    currentUser = null;
-    localStorage.removeItem('bradicoin_reserve_current');
-    renderApp();
-  }
+  function logout() { currentUser = null; localStorage.removeItem('bradicoin_current'); renderApp(); }
   
   function loadCurrentSession() {
-    const saved = localStorage.getItem('bradicoin_reserve_current');
+    const saved = localStorage.getItem('bradicoin_current');
     if(saved) {
       const session = JSON.parse(saved);
       const user = users.find(u => u.id === session.id);
@@ -282,38 +133,50 @@
     }
   }
   
-  // ==================== FUNÇÕES DA API REAL ====================
-  async function consultarSaldoRealBlockchain(enderecoWallet) {
+  function addTransaction(type, details, amount, address = null) {
+    if(!currentUser) return;
+    if(!currentUser.transactions) currentUser.transactions = [];
+    currentUser.transactions.unshift({
+      id: Date.now(),
+      type,
+      details,
+      amount,
+      address,
+      date: new Date().toLocaleString()
+    });
+    if(currentUser.transactions.length > 30) currentUser.transactions.pop();
+    saveUserData();
+  }
+  
+  // ==================== FUNÇÕES DA API ====================
+  async function consultarSaldo() {
+    if(!currentUser) return;
     try {
-      showStatus(`🔍 Consultando saldo...`, 'txStatus');
-      const response = await fetch(`${API_BASE_URL}/api/balance/${enderecoWallet}`);
+      showStatus("Consultando saldo...", 'txStatus');
+      const response = await fetch(`${API_BASE_URL}/api/balance/${currentUser.walletAddress}`);
       const data = await response.json();
       
-      if (data.success) {
-        const saldoReal = parseFloat(data.data.balance);
-        currentUser.balance = saldoReal;
+      if(data.success) {
+        currentUser.balance = data.data.balance;
         saveUserData();
-        updateBalanceDisplay();
-        showStatus(`✅ Saldo REAL: ${saldoReal.toLocaleString()} BRD`, 'txStatus');
-        addNotification(`🔗 Saldo: ${saldoReal.toLocaleString()} BRD`);
-        return data;
+        showStatus(`✅ Saldo: ${currentUser.balance.toLocaleString()} BRD`, 'txStatus');
       } else {
-        showStatus(`⚠️ ${data.error || 'Erro na consulta'}`, 'txStatus');
-        return null;
+        showStatus(`⚠️ ${data.error || 'Erro'}`, 'txStatus');
       }
-    } catch (error) {
-      showStatus(`❌ Erro: ${error.message}`, 'txStatus');
-      return null;
+      renderDashboard();
+    } catch(error) {
+      showStatus(`⚠️ Usando saldo local`, 'txStatus');
     }
   }
   
-  async function enviarBRDRealBlockchain(destino, quantidade) {
+  async function enviarBRD(destino, quantidade) {
     if(!currentUser) return;
-    if(!destino || destino.trim() === "") { showStatus("Digite um endereço de destino", 'txStatus'); return; }
-    if(quantidade <= 0 || isNaN(quantidade)) { showStatus("Quantidade inválida", 'txStatus'); return; }
+    if(!destino) { showStatus("Digite endereço destino", 'txStatus'); return; }
+    if(quantidade <= 0) { showStatus("Quantidade inválida", 'txStatus'); return; }
+    if(quantidade > currentUser.balance) { showStatus("Saldo insuficiente", 'txStatus'); return; }
     
     try {
-      showStatus(`⏳ Enviando ${quantidade} BRD...`, 'txStatus');
+      showStatus(`Enviando ${quantidade} BRD...`, 'txStatus');
       const response = await fetch(`${API_BASE_URL}/api/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,66 +188,52 @@
       });
       const result = await response.json();
       
-      if (result.success) {
-        const bonus = result.data?.bonus || 0;
+      if(result.success) {
         currentUser.balance = result.data?.newBalance || currentUser.balance;
         saveUserData();
-        updateBalanceDisplay();
-        
-        // Adicionar ao histórico
-        addTransactionToHistory('SENT', `Enviado para ${destino.substring(0, 20)}...`, quantidade, destino);
-        if(bonus > 0) addTransactionToHistory('BONUS', `Bônus de auto-reposição`, bonus, null);
-        
+        addTransaction('SENT', `Enviado para ${destino.substring(0, 20)}...`, quantidade, destino);
         showStatus(`✅ ${result.message}`, 'txStatus');
-        addNotification(`💰 Enviado ${quantidade} BRD para ${destino.substring(0, 15)}...`);
-        await consultarSaldoRealBlockchain(currentUser.walletAddress);
-        renderDashboard();
+        consultarSaldo();
       } else {
-        showStatus(`❌ Erro: ${result.error}`, 'txStatus');
+        showStatus(`❌ ${result.error}`, 'txStatus');
       }
-    } catch (error) {
+    } catch(error) {
       showStatus(`❌ Erro: ${error.message}`, 'txStatus');
     }
   }
   
   // ==================== STAKING ====================
   const stakingOptions = [
-    { name: "30 Minutes", periodSeconds: 1800, apr: 50, minStake: 50 },
-    { name: "1 Hour", periodSeconds: 3600, apr: 50, minStake: 100 },
-    { name: "1 Day", periodSeconds: 86400, apr: 50, minStake: 500 }
+    { name: "30 Minutes", seconds: 1800, minStake: 50 },
+    { name: "1 Hour", seconds: 3600, minStake: 100 },
+    { name: "1 Day", seconds: 86400, minStake: 500 }
   ];
   
-  function calculateReward(amount, periodSeconds) { return amount * (0.50 * (periodSeconds / 31536000)); }
+  function calculateReward(amount, seconds) { return amount * (0.50 * (seconds / 31536000)); }
   
   function stake(amount, option) {
     if(!currentUser) return;
     if(amount <= 0 || amount > currentUser.balance) { showStatus("Invalid amount", 'stakeStatus'); return; }
-    if(amount < option.minStake) { showStatus(`Minimum ${option.minStake} BRD`, 'stakeStatus'); return; }
+    if(amount < option.minStake) { showStatus(`Min ${option.minStake} BRD`, 'stakeStatus'); return; }
     if(currentUser.activeStake && currentUser.activeStake.lockEndTime > Date.now()) { showStatus("Active stake exists", 'stakeStatus'); return; }
     
     if(currentUser.activeStake && currentUser.activeStake.lockEndTime <= Date.now()) {
-      const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.periodSeconds);
+      const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.seconds);
       currentUser.balance += currentUser.activeStake.amount + reward;
-      addTransactionToHistory('STAKE_REWARD', `Recompensa de staking (${currentUser.activeStake.optionName})`, reward, null);
-      addNotification(`Previous stake matured! +${reward.toFixed(4)} BRD`);
+      addTransaction('STAKE_REWARD', `Recompensa de staking`, reward, null);
     }
     
     currentUser.activeStake = {
       amount: amount,
-      lockEndTime: Date.now() + (option.periodSeconds * 1000),
-      periodSeconds: option.periodSeconds,
-      apr: option.apr,
+      lockEndTime: Date.now() + (option.seconds * 1000),
+      seconds: option.seconds,
       optionName: option.name,
       startTime: Date.now()
     };
     currentUser.balance -= amount;
-    
-    // Adicionar ao histórico
-    addTransactionToHistory('STAKE', `Stake de ${amount} BRD por ${option.name}`, amount, null);
-    
+    addTransaction('STAKE', `Stake de ${amount} BRD por ${option.name}`, amount, null);
     saveUserData();
     renderDashboard();
-    addNotification(`🔒 Staked ${amount.toLocaleString()} BRD for ${option.name}`);
     showStatus(`Staked ${amount} BRD!`, 'stakeStatus');
   }
   
@@ -392,14 +241,10 @@
     if(!currentUser || !currentUser.activeStake) { showStatus("No active stake", 'stakeStatus'); return; }
     if(Date.now() < currentUser.activeStake.lockEndTime) { showStatus("Stake locked!", 'stakeStatus'); return; }
     
-    const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.periodSeconds);
+    const reward = calculateReward(currentUser.activeStake.amount, currentUser.activeStake.seconds);
     currentUser.balance += currentUser.activeStake.amount + reward;
-    
-    // Adicionar ao histórico
-    addTransactionToHistory('UNSTAKE', `Unstake de ${currentUser.activeStake.amount} BRD`, currentUser.activeStake.amount, null);
-    addTransactionToHistory('STAKE_REWARD', `Ganho de staking (${currentUser.activeStake.optionName})`, reward, null);
-    
-    addNotification(`✅ Unstaked +${reward.toFixed(4)} BRD reward`);
+    addTransaction('UNSTAKE', `Unstake de ${currentUser.activeStake.amount} BRD`, currentUser.activeStake.amount, null);
+    addTransaction('STAKE_REWARD', `Ganho de staking`, reward, null);
     currentUser.activeStake = null;
     saveUserData();
     renderDashboard();
@@ -410,357 +255,196 @@
     if(!currentUser || !currentUser.activeStake) return 0;
     const now = Date.now();
     if(now >= currentUser.activeStake.lockEndTime) return 100;
-    const total = currentUser.activeStake.periodSeconds * 1000;
+    const total = currentUser.activeStake.seconds * 1000;
     const elapsed = now - (currentUser.activeStake.lockEndTime - total);
     return Math.min(100, (elapsed / total) * 100);
   }
   
   // ==================== FUNÇÕES AUXILIARES ====================
-  function sendCoins(toAddress, amount) {
-    enviarBRDRealBlockchain(toAddress, amount);
-  }
-  
-  function lookupWalletOnBradichain(walletAddr) {
-    if(!walletAddr) { showStatus("Enter wallet address", 'txStatus'); return; }
-    window.open(`https://www.bradichain.com/address/${walletAddr}`, '_blank');
-    addNotification(`🔍 Buscando: ${walletAddr}`);
-  }
-  
-  function receiveFunds(senderAddress, amount) {
-    if(!currentUser) return;
-    if(!amount || amount <= 0) { showStatus("Invalid amount", 'txStatus'); return; }
-    currentUser.balance += amount;
-    addTransactionToHistory('RECEIVED', `Recebido de ${senderAddress || "wallet externa"}`, amount, senderAddress);
-    saveUserData();
-    renderDashboard();
-    addNotification(`📥 Received ${amount.toLocaleString()} BRD`);
-    showStatus(`✅ +${amount} BRD`, 'txStatus');
-    updateBalanceDisplay();
-  }
-  
   function copyAddress() {
-    if(currentUser && currentUser.walletAddress) {
+    if(currentUser) {
       navigator.clipboard.writeText(currentUser.walletAddress);
       showStatus("Address copied!", 'txStatus');
     }
   }
   
-  function copySeedPhrase() {
-    if(currentUser && currentUser.seedPhrase) {
-      navigator.clipboard.writeText(currentUser.seedPhrase);
-      showStatus("Seed phrase copied! Keep it safe!", 'txStatus');
-      addNotification("⚠️ Seed phrase copied - store securely!");
-    }
+  function receiveFunds(amount) {
+    if(!currentUser) return;
+    if(!amount || amount <= 0) { showStatus("Invalid amount", 'txStatus'); return; }
+    currentUser.balance += amount;
+    addTransaction('RECEIVED', `Recebido de wallet externa`, amount, null);
+    saveUserData();
+    renderDashboard();
+    showStatus(`✅ Received ${amount} BRD!`, 'txStatus');
   }
   
   function updateBalanceDisplay() {
     const balSpan = document.getElementById('balanceDisplay');
-    if(balSpan && currentUser) balSpan.innerText = currentUser.balance.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    if(balSpan && currentUser) balSpan.innerText = currentUser.balance.toLocaleString();
   }
   
-  function getStakingTimeRemaining() {
-    if(!currentUser || !currentUser.activeStake) return null;
-    const remaining = currentUser.activeStake.lockEndTime - Date.now();
-    if(remaining <= 0) return "Matured!";
-    const hours = Math.floor(remaining / 3600000);
-    const mins = Math.floor((remaining % 3600000) / 60000);
-    const secs = Math.floor((remaining % 60000) / 1000);
-    return `${hours}h ${mins}m ${secs}s`;
+  function showStatus(msg, id) {
+    const el = document.getElementById(id);
+    if(el) { el.innerText = msg; setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 5000); }
   }
-  
-  // ==================== RENDER HISTÓRICO ====================
-  function renderHistory() {
-    const historyContainer = document.getElementById('historyContainer');
-    if(!historyContainer || !currentUser) return;
-    
-    const history = currentUser.transactionHistory || [];
-    
-    if(history.length === 0) {
-      historyContainer.innerHTML = '<div style="text-align:center; padding:2rem; color:#888;">Nenhuma transação ainda. Envie ou receba BRD para ver o histórico!</div>';
-      return;
-    }
-    
-    const getTypeClass = (type) => {
-      if(type === 'SENT') return 'tx-sent';
-      if(type === 'RECEIVED') return 'tx-received';
-      if(type === 'STAKE') return 'tx-stake';
-      if(type === 'UNSTAKE') return 'tx-stake';
-      if(type === 'STAKE_REWARD') return 'tx-reward';
-      if(type === 'BONUS') return 'tx-reward';
-      return '';
-    };
-    
-    const getTypeIcon = (type) => {
-      if(type === 'SENT') return '<i class="fas fa-arrow-up"></i>';
-      if(type === 'RECEIVED') return '<i class="fas fa-arrow-down"></i>';
-      if(type === 'STAKE') return '<i class="fas fa-lock"></i>';
-      if(type === 'UNSTAKE') return '<i class="fas fa-unlock"></i>';
-      if(type === 'STAKE_REWARD') return '<i class="fas fa-gem"></i>';
-      if(type === 'BONUS') return '<i class="fas fa-gift"></i>';
-      return '<i class="fas fa-exchange-alt"></i>';
-    };
-    
-    historyContainer.innerHTML = `
-      <table class="history-table">
-        <thead>
-          <tr><th>Data/Hora</th><th>Tipo</th><th>Detalhes</th><th>Quantidade (BRD)</th></tr>
-        </thead>
-        <tbody>
-          ${history.map(tx => `
-            <tr class="${getTypeClass(tx.type)}">
-              <td class="timestamp">${tx.formattedDate || new Date(tx.date).toLocaleString()}</td>
-              <td>${getTypeIcon(tx.type)} ${tx.type}</td>
-              <td style="font-size:0.65rem;">${tx.details || '-'}</td>
-              <td>${tx.amount?.toLocaleString() || '0'}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-  }
-  
-  // ==================== NOTIFICAÇÕES ====================
-  let notifications = [{ text: "✨ Bradicoin Reserve Fund | Histórico de Transações Ativado!", read: false }];
-  
-  function addNotification(text) {
-    notifications.unshift({ text, read: false });
-    if(notifications.length > 15) notifications.pop();
-    renderNotifications();
-  }
-  
-  function renderNotifications() {
-    const panel = document.getElementById('notifPanel');
-    const countSpan = document.getElementById('notifCount');
-    if(panel) {
-      const unread = notifications.filter(n => !n.read).length;
-      if(countSpan) countSpan.innerText = unread;
-      panel.innerHTML = `<h4>🔔 Notificações</h4>${notifications.map(n => `<div style="padding:0.5rem; border-bottom:1px solid #a855f7; font-size:0.75rem;">${n.text}</div>`).join('')}`;
-    }
-  }
-  
-  function toggleNotifications() {
-    const panel = document.getElementById('notificationPanel');
-    if(panel) panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    notifications.forEach(n => n.read = true);
-    renderNotifications();
-  }
-  
-  function showStatus(msg, elementId) {
-    const el = document.getElementById(elementId);
-    if(el) { el.innerHTML = msg; setTimeout(() => { if(el.innerHTML === msg) el.innerHTML = ""; }, 6000); }
-  }
-  
-  // ==================== TRADUÇÕES ====================
-  const translations = {
-    en: {
-      title: "BRADICOIN RESERVE FUND", login: "Login", register: "Register", logout: "Logout",
-      username: "Username", password: "Password", confirmPassword: "Confirm Password",
-      loginBtn: "Sign In", registerBtn: "Create Account", noAccount: "Don't have an account?",
-      hasAccount: "Already have an account?", balance: "Balance", walletAddress: "Wallet Address",
-      copy: "Copy", copySeed: "Copy Seed", sendReceive: "Send / Receive BRD", recipient: "Recipient Address",
-      amount: "Amount (BRD)", send: "Send BRD (Real Blockchain)", staking: "Staking Pools (50% APR)",
-      stakeFor: "Stake for", lock: "Lock", min: "Min", noStake: "No active stake",
-      unstake: "Unstake", reward: "Reward", explorer: "Explorer", history: "Transaction History",
-      footer: "BRADICOIN RESERVE ● 50% APR ● Real Blockchain ● Auto Wallet Generator",
-    },
-    pt: {
-      title: "FUNDO RESERVA BRADICOIN", login: "Entrar", register: "Cadastrar", logout: "Sair",
-      username: "Usuário", password: "Senha", confirmPassword: "Confirmar Senha",
-      loginBtn: "Entrar", registerBtn: "Criar Conta", noAccount: "Não tem conta?",
-      hasAccount: "Já tem conta?", balance: "Saldo", walletAddress: "Endereço da Carteira",
-      copy: "Copiar", copySeed: "Copiar Seed", sendReceive: "Enviar / Receber BRD", recipient: "Endereço Destino",
-      amount: "Quantidade (BRD)", send: "Enviar BRD (Blockchain Real)", staking: "Staking (50% APR)",
-      stakeFor: "Fazer Stake", lock: "Bloqueio", min: "Mín", noStake: "Sem stake ativo",
-      unstake: "Retirar", reward: "Recompensa", explorer: "Explorador", history: "Histórico de Transações",
-      footer: "FUNDO RESERVA BRADICOIN ● 50% APR ● Blockchain Real ● Gerador de Wallets",
-    }
-  };
-  
-  function t(key) { return translations[currentLang][key] || key; }
   
   // ==================== RENDER AUTH ====================
   let showingLogin = true;
-  let registerError = "";
-  let loginError = "";
+  let registerError = "", loginError = "";
   
   function renderAuth() {
     const html = `
-      <div class="auth-container">
-        <div class="auth-box neon-card">
-          <div class="logo-large"><i class="fas fa-microchip"></i></div>
-          <h1 style="font-size:1.5rem;">BRADICOIN RESERVE FUND</h1>
-          <p style="color:#a855f7;">🔒 Max 3 Users | Histórico de Transações</p>
-          <p style="color:#00f2ff; font-size:0.7rem;">💎 Total Reserve: 99,999,999,999,999,999 BRD</p>
+      <div style="display:flex; justify-content:center; align-items:center; min-height:80vh;">
+        <div class="neon-card" style="max-width:450px; text-align:center;">
+          <h1>BRADICOIN RESERVE</h1>
+          <p style="color:#a855f7;">Max 3 Users | Wallet Generator</p>
+          <p style="color:#00f2ff; font-size:0.7rem;">Total Reserve: 99,999,999,999,999,999 BRD</p>
           ${showingLogin ? `
-            <div>
-              <input type="text" id="loginUsername" class="cyber-input" placeholder="${t('username')}" style="margin-bottom:1rem;">
-              <input type="password" id="loginPassword" class="cyber-input" placeholder="${t('password')}">
-              <div class="status-msg alert" id="loginErrorMsg">${loginError}</div>
-              <button id="doLoginBtn" class="cyber-btn primary" style="width:100%;"><i class="fas fa-sign-in-alt"></i> ${t('loginBtn')}</button>
-            </div>
-            <p style="margin-top:1rem;">${t('noAccount')} <a href="#" id="switchToRegister" style="color:#00f2ff;">${t('register')}</a></p>
+            <input type="text" id="loginUser" class="cyber-input" placeholder="Username">
+            <input type="password" id="loginPass" class="cyber-input" placeholder="Password">
+            <div class="status-msg alert" id="loginMsg">${loginError}</div>
+            <button id="doLogin" class="cyber-btn primary" style="width:100%;">Login</button>
+            <p style="margin-top:1rem;">No account? <a href="#" id="switchReg" style="color:#00f2ff;">Register</a></p>
           ` : `
-            <div>
-              <input type="text" id="regUsername" class="cyber-input" placeholder="${t('username')}" style="margin-bottom:1rem;">
-              <input type="password" id="regPassword" class="cyber-input" placeholder="${t('password')}" style="margin-bottom:1rem;">
-              <input type="password" id="regConfirm" class="cyber-input" placeholder="${t('confirmPassword')}">
-              <div class="status-msg alert" id="registerErrorMsg">${registerError}</div>
-              <button id="doRegisterBtn" class="cyber-btn primary" style="width:100%;"><i class="fas fa-user-plus"></i> ${t('registerBtn')}</button>
-            </div>
-            <p style="margin-top:1rem;">${t('hasAccount')} <a href="#" id="switchToLogin" style="color:#00f2ff;">${t('login')}</a></p>
+            <input type="text" id="regUser" class="cyber-input" placeholder="Username">
+            <input type="password" id="regPass" class="cyber-input" placeholder="Password">
+            <input type="password" id="regConfirm" class="cyber-input" placeholder="Confirm Password">
+            <div class="status-msg alert" id="regMsg">${registerError}</div>
+            <button id="doReg" class="cyber-btn primary" style="width:100%;">Register</button>
+            <p style="margin-top:1rem;">Have an account? <a href="#" id="switchLogin" style="color:#00f2ff;">Login</a></p>
           `}
-          <div style="margin-top:1rem;"><select id="langSelectAuth" class="lang-selector"><option value="en">🇬🇧 English</option><option value="pt">🇧🇷 Português</option></select></div>
         </div>
       </div>
     `;
     document.getElementById('appRoot').innerHTML = html;
-    document.getElementById('langSelectAuth').value = currentLang;
-    document.getElementById('langSelectAuth').onchange = (e) => { currentLang = e.target.value; renderAuth(); };
     
     if(showingLogin) {
-      document.getElementById('doLoginBtn').onclick = () => {
-        const result = loginUser(document.getElementById('loginUsername').value, document.getElementById('loginPassword').value);
+      document.getElementById('doLogin').onclick = () => {
+        const result = loginUser(document.getElementById('loginUser').value, document.getElementById('loginPass').value);
         if(result.success) renderApp();
         else { loginError = result.message; renderAuth(); }
       };
-      document.getElementById('switchToRegister').onclick = (e) => { e.preventDefault(); showingLogin = false; renderAuth(); };
+      document.getElementById('switchReg').onclick = (e) => { e.preventDefault(); showingLogin = false; registerError = ""; renderAuth(); };
     } else {
-      document.getElementById('doRegisterBtn').onclick = () => {
-        const user = document.getElementById('regUsername').value;
-        const pass = document.getElementById('regPassword').value;
+      document.getElementById('doReg').onclick = () => {
+        const user = document.getElementById('regUser').value;
+        const pass = document.getElementById('regPass').value;
         const confirm = document.getElementById('regConfirm').value;
-        if(pass !== confirm) { registerError = "Passwords do not match!"; renderAuth(); return; }
+        if(pass !== confirm) { registerError = "Passwords don't match!"; renderAuth(); return; }
         const result = registerUser(user, pass);
         if(result.success) { showingLogin = true; renderAuth(); }
         else { registerError = result.message; renderAuth(); }
       };
-      document.getElementById('switchToLogin').onclick = (e) => { e.preventDefault(); showingLogin = true; renderAuth(); };
+      document.getElementById('switchLogin').onclick = (e) => { e.preventDefault(); showingLogin = true; loginError = ""; renderAuth(); };
     }
   }
   
-  // ==================== DASHBOARD ====================
+  // ==================== RENDER DASHBOARD ====================
   function renderDashboard() {
     if(!currentUser) return;
-    const stakeProgress = getStakeProgress();
-    const activeStake = currentUser.activeStake;
-    const remainingTime = getStakingTimeRemaining();
+    const progress = getStakeProgress();
+    const active = currentUser.activeStake;
     
-    let stakeInfoHtml = `<div class="staking-timer">💎 ${t('noStake')}</div>`;
-    if(activeStake) {
-      const reward = calculateReward(activeStake.amount, activeStake.periodSeconds);
-      stakeInfoHtml = `
-        <div class="progress-bar"><div class="progress-fill" style="width:${stakeProgress}%"></div></div>
-        <div class="staking-timer">⏱️ ${activeStake.optionName} - Tempo restante: ${remainingTime} | Recompensa prevista: ${reward.toFixed(4)} BRD</div>
+    let stakeHtml = `<div>💎 No active stake</div>`;
+    if(active) {
+      const remaining = active.lockEndTime - Date.now();
+      const hours = Math.floor(remaining / 3600000);
+      const mins = Math.floor((remaining % 3600000) / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      const reward = calculateReward(active.amount, active.seconds);
+      stakeHtml = `
+        <div style="background:#1a1f30; border-radius:1rem; height:8px;"><div style="width:${progress}%; height:100%; background:#00f2ff; border-radius:1rem;"></div></div>
+        <div>⏱️ ${active.optionName}: ${hours}h ${mins}m ${secs}s | Reward: ${reward.toFixed(4)} BRD</div>
       `;
-      if(stakeProgress >= 100) stakeInfoHtml += `<div class="staking-timer success">✅ MADURO! Clique em UNSTAKE para receber.</div>`;
     }
     
-    const stakingOptionsHtml = stakingOptions.map(opt => `
-      <div style="background:#0a0e1f; border-radius:1rem; padding:0.8rem; margin-bottom:0.8rem; border-left:3px solid #a855f7;">
-        <div><strong>${opt.name}</strong> <span style="color:#00f2ff;">${opt.apr}% APR</span></div>
-        <div style="font-size:0.65rem;">Mínimo: ${opt.minStake} BRD</div>
-        <input type="number" id="stakeAmount_${opt.name.replace(/\s/g,'')}" class="cyber-input" placeholder="Quantidade" step="any" style="margin-top:0.5rem;">
-        <button class="cyber-btn stake-btn" data-period="${opt.periodSeconds}" data-name="${opt.name}" style="width:100%; margin-top:0.5rem;"><i class="fas fa-lock"></i> Stake ${opt.name}</button>
+    const stakingHtml = stakingOptions.map(opt => `
+      <div style="background:#0a0e1f; padding:0.8rem; margin-bottom:0.5rem; border-left:3px solid #a855f7;">
+        <strong>${opt.name}</strong> <span style="color:#00f2ff;">50% APR</span>
+        <div>Min: ${opt.minStake} BRD</div>
+        <input type="number" id="stakeAmt_${opt.name.replace(/\s/g,'')}" class="cyber-input" placeholder="Amount">
+        <button class="stakeBtn" data-seconds="${opt.seconds}" data-name="${opt.name}" style="width:100%; margin-top:0.5rem;" class="cyber-btn">Stake ${opt.name}</button>
       </div>
     `).join('');
     
+    const transactions = currentUser.transactions || [];
+    const historyHtml = transactions.length === 0 ? '<tr><td colspan="3" style="text-align:center;">No transactions yet</td></tr>' :
+      transactions.map(t => `<tr><td>${t.date}</td><td>${t.type}</td><td>${t.details}</td><td>${t.amount?.toLocaleString() || 0} BRD</td></tr>`).join('');
+    
     const html = `
-      <div class="top-bar">
-        <div><h1><i class="fas fa-microchip"></i> BRADICOIN RESERVE <span class="api-badge">HISTÓRICO ATIVO</span></h1></div>
-        <div style="display:flex; gap:0.8rem; align-items:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding:1rem; background:rgba(12,20,35,0.7); border-radius:2rem;">
+        <h1><i class="fas fa-microchip"></i> BRADICOIN RESERVE</h1>
+        <div>
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
-          <button id="logoutBtn" class="cyber-btn"><i class="fas fa-sign-out-alt"></i> ${t('logout')}</button>
-          <div class="notification-badge" id="notifBell"><i class="fas fa-bell"></i><span id="notifCount" class="badge-count">0</span></div>
-          <select id="langSelectDash" class="lang-selector"><option value="en">EN</option><option value="pt">PT</option></select>
+          <button id="logoutBtn" class="cyber-btn" style="margin-left:1rem;">Logout</button>
         </div>
       </div>
-      <div id="notificationPanel" style="display:none; position:fixed; top:80px; right:20px; width:340px; background:#0a0f1e; border:1px solid #a855f7; border-radius:1rem; padding:1rem; z-index:1000;"></div>
       
       <div class="dashboard-grid">
         <div class="neon-card">
-          <div><i class="fas fa-chart-line"></i> ${t('balance')}</div>
+          <h3>Balance</h3>
           <div class="balance-amount" id="balanceDisplay">${currentUser.balance.toLocaleString()}</div>
-          <div>BRD TOKEN | Reserva: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD</div>
-          
-          <div style="margin-top:1rem;"><label>${t('walletAddress')}</label></div>
-          <div class="wallet-info">${currentUser.walletAddress}</div>
-          <div style="margin-top:0.5rem;"><label>Seed Phrase</label></div>
-          <div class="wallet-info seed-preview" onclick="copySeedPhrase()">${currentUser.seedPhrase.substring(0, 40)}... <i class="fas fa-copy"></i></div>
-          
-          <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
-            <button id="copyAddrBtn" class="cyber-btn" style="flex:1;"><i class="far fa-copy"></i> ${t('copy')}</button>
-            <button id="copySeedBtn" class="cyber-btn wallet-btn" style="flex:1;"><i class="fas fa-key"></i> ${t('copySeed')}</button>
-          </div>
-          <button id="consultBalanceBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-sync-alt"></i> Consultar Blockchain</button>
-          <button id="lookupWalletBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-search"></i> Ver no Explorer</button>
+          <div>BRD TOKEN</div>
+          <div style="margin-top:1rem;"><strong>Wallet Address</strong></div>
+          <div style="font-family:monospace; font-size:0.7rem; background:#000; padding:0.5rem; border-radius:0.5rem; word-break:break-all;">${currentUser.walletAddress}</div>
+          <button id="copyAddr" class="cyber-btn" style="width:100%; margin-top:0.5rem;">Copy Address</button>
+          <button id="checkBalance" class="cyber-btn" style="width:100%; margin-top:0.5rem;">Check Balance on Blockchain</button>
         </div>
         
         <div class="neon-card">
-          <div><i class="fas fa-layer-group"></i> ${t('staking')}</div>
-          ${stakingOptionsHtml}
+          <h3>Staking (50% APR)</h3>
+          ${stakingHtml}
           <div id="stakeStatus" class="status-msg"></div>
-          ${stakeInfoHtml}
-          <button id="unstakeBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-unlock-alt"></i> ${t('unstake')}</button>
+          ${stakeHtml}
+          <button id="unstakeBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;">Unstake</button>
         </div>
         
         <div class="neon-card">
-          <div><i class="fas fa-exchange-alt"></i> ${t('sendReceive')}</div>
-          <input type="text" id="recipientAddr" class="cyber-input" placeholder="${t('recipient')}">
-          <input type="number" id="sendAmount" class="cyber-input" placeholder="${t('amount')}" step="any" style="margin-top:0.5rem;">
-          <button id="sendBtn" class="cyber-btn primary" style="width:100%; margin-top:0.5rem;"><i class="fas fa-paper-plane"></i> ${t('send')}</button>
-          <hr style="margin:1rem 0;">
-          <input type="text" id="receiveSender" class="cyber-input" placeholder="Remetente (opcional)">
-          <input type="number" id="receiveAmount" class="cyber-input" placeholder="Quantidade" step="any">
-          <button id="receiveBtn" class="cyber-btn" style="width:100%; margin-top:0.5rem;"><i class="fas fa-download"></i> Receber (Simular)</button>
+          <h3>Send / Receive</h3>
+          <input type="text" id="recipientAddr" class="cyber-input" placeholder="Recipient Address (Br...)">
+          <input type="number" id="sendAmount" class="cyber-input" placeholder="Amount BRD">
+          <button id="sendBtn" class="cyber-btn primary" style="width:100%;">Send BRD</button>
+          <hr style="margin: 1rem 0; border-color:#a855f7;">
+          <input type="number" id="receiveAmount" class="cyber-input" placeholder="Amount to receive">
+          <button id="receiveBtn" class="cyber-btn" style="width:100%;">Receive (Simulate)</button>
           <div id="txStatus" class="status-msg"></div>
         </div>
       </div>
       
-      <!-- HISTÓRICO DE TRANSAÇÕES -->
-      <div class="neon-card" style="margin-top: 1.5rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h3><i class="fas fa-history"></i> ${t('history')}</h3>
-          <span style="font-size:0.7rem; color:#a855f7;">Últimas 50 transações</span>
+      <div class="neon-card">
+        <h3><i class="fas fa-history"></i> Transaction History</h3>
+        <div style="max-height:300px; overflow-y:auto;">
+          <table class="history-table">
+            <thead><tr><th>Date/Time</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
+            <tbody>${historyHtml}</tbody>
+          </table>
         </div>
-        <div id="historyContainer" class="history-table-container"></div>
       </div>
       
-      <footer>⚡ ${t('footer')} | ${new Date().toLocaleString()}</footer>
+      <footer style="text-align:center; margin-top:1rem; font-size:0.7rem;">BRADICOIN RESERVE ● 50% APR ● Real Blockchain</footer>
     `;
     
     document.getElementById('appRoot').innerHTML = html;
     
     document.getElementById('logoutBtn').onclick = logout;
-    document.getElementById('copyAddrBtn').onclick = copyAddress;
-    document.getElementById('copySeedBtn').onclick = copySeedPhrase;
-    document.getElementById('consultBalanceBtn').onclick = () => consultarSaldoRealBlockchain(currentUser.walletAddress);
-    document.getElementById('lookupWalletBtn').onclick = () => lookupWalletOnBradichain(currentUser.walletAddress);
-    document.getElementById('sendBtn').onclick = () => sendCoins(document.getElementById('recipientAddr').value, parseFloat(document.getElementById('sendAmount').value));
-    document.getElementById('receiveBtn').onclick = () => receiveFunds(document.getElementById('receiveSender').value, parseFloat(document.getElementById('receiveAmount').value));
+    document.getElementById('copyAddr').onclick = copyAddress;
+    document.getElementById('checkBalance').onclick = consultarSaldo;
+    document.getElementById('sendBtn').onclick = () => enviarBRD(document.getElementById('recipientAddr').value, parseFloat(document.getElementById('sendAmount').value));
+    document.getElementById('receiveBtn').onclick = () => receiveFunds(parseFloat(document.getElementById('receiveAmount').value));
     document.getElementById('unstakeBtn').onclick = unstake;
-    document.getElementById('notifBell').onclick = toggleNotifications;
     
-    document.querySelectorAll('.stake-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const periodSec = parseInt(btn.dataset.period);
-        const optName = btn.dataset.name;
-        const amount = parseFloat(document.getElementById(`stakeAmount_${optName.replace(/\s/g,'')}`).value);
-        const option = stakingOptions.find(o => o.periodSeconds === periodSec);
+    document.querySelectorAll('.stakeBtn').forEach(btn => {
+      btn.onclick = () => {
+        const secs = parseInt(btn.dataset.seconds);
+        const name = btn.dataset.name;
+        const amount = parseFloat(document.getElementById(`stakeAmt_${name.replace(/\s/g,'')}`).value);
+        const option = stakingOptions.find(o => o.seconds === secs);
         if(option && amount > 0) stake(amount, option);
-        else showStatus("Digite uma quantidade válida", 'stakeStatus');
-      });
+        else showStatus("Enter valid amount", 'stakeStatus');
+      };
     });
     
-    document.getElementById('langSelectDash').value = currentLang;
-    document.getElementById('langSelectDash').onchange = (e) => { currentLang = e.target.value; renderDashboard(); };
-    
-    window.copySeedPhrase = copySeedPhrase;
-    renderHistory();
-    setInterval(() => {
-      if(currentUser && document.getElementById('balanceDisplay')) updateBalanceDisplay();
-      if(currentUser && document.getElementById('historyContainer')) renderHistory();
-    }, 1000);
-    renderNotifications();
+    setInterval(() => updateBalanceDisplay(), 1000);
   }
   
   function renderApp() { loadUsers(); loadCurrentSession(); if(currentUser) renderDashboard(); else renderAuth(); }
