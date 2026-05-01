@@ -112,8 +112,9 @@
 <div class="container" id="appRoot"></div>
 
 <script>
-  // ==================== CONFIGURAÇÃO ====================
-  const API_BASE_URL = 'https://bradicoin-api.onrender.com/api';
+  // ==================== CONFIGURAÇÃO CORRIGIDA ====================
+  // REMOVIDO o /api da URL base porque as rotas já incluem /api
+  const API_BASE_URL = 'https://bradicoin-api.onrender.com';
   const RESERVE_TOTAL_SUPPLY = 99999999999999999;
   
   // Lista de palavras para seed phrase (BIP39-like)
@@ -130,7 +131,6 @@
   let currentUser = null;
   let currentLang = 'en';
   
-  // Função para gerar seed phrase (12 palavras)
   function generateSeedPhrase() {
     const words = [];
     for(let i = 0; i < 12; i++) {
@@ -139,14 +139,12 @@
     return words.join(' ');
   }
   
-  // Função para gerar wallet address BRD (começa com Br)
   function generateWalletAddress(seed) {
     const hash = seed.split(' ').join('').substring(0, 32);
     const randomPart = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
     return `Br${hash}${randomPart.substring(0, 24)}`;
   }
   
-  // Gerar wallet completa (address + seed)
   function generateFullWallet(username) {
     const seedPhrase = generateSeedPhrase();
     const walletAddress = generateWalletAddress(seedPhrase + username);
@@ -177,13 +175,25 @@
   function saveUsers() { localStorage.setItem('bradicoin_reserve_users', JSON.stringify(users)); }
   function canRegister() { return users.length < 3; }
   
-  // Registrar novo usuário com wallet BRD gerada automaticamente
+  async function registerUserOnAPI(username, password, walletAddress, seedPhrase) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/wallet/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, address: walletAddress, seedPhrase })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('API register error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
   function registerUser(username, password) {
     if(!canRegister()) return { success: false, message: "Registration limit reached. Maximum 3 users allowed." };
     if(users.find(u => u.username === username)) return { success: false, message: "Username already exists." };
     if(username.length < 3 || password.length < 4) return { success: false, message: "Username (min 3 chars) and password (min 4 chars) required." };
     
-    // Gerar wallet BRD real
     const { walletAddress, seedPhrase } = generateFullWallet(username);
     
     const newUser = {
@@ -199,6 +209,10 @@
     };
     users.push(newUser);
     saveUsers();
+    
+    // Register on API
+    registerUserOnAPI(username, password, walletAddress, seedPhrase);
+    
     return { success: true, message: `Account created! Wallet: ${walletAddress.substring(0, 20)}... | Balance: ${RESERVE_TOTAL_SUPPLY.toLocaleString()} BRD`, walletAddress, seedPhrase };
   }
   
@@ -234,15 +248,15 @@
     }
   }
   
-  // ==================== FUNÇÕES DA API REAL ====================
+  // ==================== FUNÇÕES DA API REAL (CORRIGIDAS) ====================
   async function consultarSaldoRealBlockchain(enderecoWallet) {
     try {
       showStatus(`🔍 Consultando saldo na blockchain Bradichain...`, 'txStatus');
-      const response = await fetch(`${API_BASE_URL}/balance/${enderecoWallet}`);
+      const response = await fetch(`${API_BASE_URL}/api/balance/${enderecoWallet}`);
       const data = await response.json();
       
       if (data.success) {
-        const saldoReal = parseFloat(data.balance);
+        const saldoReal = parseFloat(data.data.balance);
         currentUser.balance = saldoReal;
         saveUserData();
         updateBalanceDisplay();
@@ -254,7 +268,7 @@
         return null;
       }
     } catch (error) {
-      showStatus(`❌ API offline: ${error.message}`, 'txStatus');
+      showStatus(`❌ Erro: ${error.message}`, 'txStatus');
       return null;
     }
   }
@@ -264,23 +278,24 @@
     if(!destino || destino.trim() === "") { showStatus("Digite um endereço de destino", 'txStatus'); return; }
     if(quantidade <= 0 || isNaN(quantidade)) { showStatus("Quantidade inválida", 'txStatus'); return; }
     
-    const privateKey = prompt("🔐 DIGITE SUA PRIVATE KEY para enviar BRD na blockchain:");
-    if (!privateKey || privateKey.length < 10) return;
-    
     try {
       showStatus(`⏳ Enviando ${quantidade} BRD para ${destino}...`, 'txStatus');
-      const response = await fetch(`${API_BASE_URL}/send`, {
+      const response = await fetch(`${API_BASE_URL}/api/wallet/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: destino, amount: quantidade, privateKey: privateKey, fromWallet: currentUser.walletAddress })
+        body: JSON.stringify({ 
+          fromAddress: currentUser.walletAddress, 
+          toAddress: destino, 
+          amount: quantidade 
+        })
       });
       const result = await response.json();
       
       if (result.success) {
-        currentUser.balance -= quantidade;
+        currentUser.balance = result.data.newBalance;
         saveUserData();
         updateBalanceDisplay();
-        showStatus(`✅ Transação REAL! Hash: ${result.txHash?.substring(0, 20)}...`, 'txStatus');
+        showStatus(`✅ ${result.message}`, 'txStatus');
         addNotification(`💰 Enviado ${quantidade} BRD para ${destino.substring(0, 15)}...`);
         await consultarSaldoRealBlockchain(currentUser.walletAddress);
       } else {
