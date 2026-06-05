@@ -158,7 +158,7 @@
     }
     .balance-label { font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #a855f7; }
     .balance-amount {
-      font-size: 3.5rem;
+      font-size: 2.5rem;
       font-weight: 800;
       background: linear-gradient(135deg, #00f2ff, #a855f7);
       -webkit-background-clip: text;
@@ -248,6 +248,9 @@
     .bradichain-badge { background: linear-gradient(135deg, #f7931a, #ff6b35); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; }
     .clear-data-btn { background: rgba(255, 0, 85, 0.2); border: 1px solid #ff0055; color: #ff0055; }
     .clear-data-btn:hover { background: #ff0055; color: white; }
+    .metric-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .reserve-card { background: linear-gradient(135deg, rgba(0,242,255,0.2), rgba(168,85,247,0.1)); border: 2px solid #00f2ff; }
+    .user-balance-card { background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,242,255,0.08)); border: 2px solid #00ff88; }
   </style>
 </head>
 <body>
@@ -257,7 +260,22 @@
   // ==================== CONFIGURAÇÃO ====================
   const API_URL = 'https://bradicoin-api.onrender.com';
   const BRADICHAIN_URL = 'https://www.bradichain.com';
-  const RESERVE_SUPPLY = 99999999999999999;
+  
+  // CONFIGURAÇÕES BRADICOIN
+  // 1 BRD = 10 DOLARES
+  const BRD_TO_USD = 10;
+  
+  // RESERVE FUND: 100.000.000.000.000.000 BRD
+  const RESERVE_SUPPLY_BRD = 100000000000000000;
+  
+  // VALOR EM DOLAR DA RESERVA: 100.000.000.000.000.000 BRD x 10 USD = 1.000.000.000.000.000.000 USD
+  const RESERVE_SUPPLY_USD = RESERVE_SUPPLY_BRD * BRD_TO_USD;
+  
+  // APR para Staking
+  const APR_2MIN = 130;
+  const APR_30MIN = 130;
+  const APR_1HOUR = 50;
+  const APR_1DAY = 50;
   
   let users = [];
   let currentUser = null;
@@ -281,14 +299,13 @@
     }
   }
   
-  // Limpar todos os dados
   function clearAllData() {
     if(confirm('⚠️ ATENÇÃO! Isso irá apagar TODOS os usuários e dados. Você tem certeza?')) {
       localStorage.removeItem('bradicoin_premium_data');
       localStorage.removeItem('bradicoin_premium_session');
       users = [];
       currentUser = null;
-      alert('✅ Todos os dados foram limpos! Você pode criar novas contas.');
+      alert('✅ Todos os dados foram limpos!');
       render();
     }
   }
@@ -315,13 +332,16 @@
     if(username.length < 3) return { success: false, message: '⚠️ Username must be at least 3 characters' };
     if(password.length < 4) return { success: false, message: '⚠️ Password must be at least 4 characters' };
     
+    // Saldo inicial do usuário = 100.000.000.000.000.000 BRD
+    const initialBalance = RESERVE_SUPPLY_BRD;
+    
     const newUser = {
       id: Date.now(),
       username: username,
       password: password,
       walletAddress: generateWalletAddress(),
       seedPhrase: generateSeedPhrase(),
-      balance: RESERVE_SUPPLY,
+      balance: initialBalance,
       activeStake: null,
       transactions: [],
       createdAt: new Date().toISOString()
@@ -329,12 +349,6 @@
     
     users.push(newUser);
     saveUsers();
-    
-    fetch(`${API_URL}/api/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    }).catch(e => console.log('API note:', e));
     
     return { success: true, message: '✅ Account created successfully!', wallet: newUser.walletAddress };
   }
@@ -386,7 +400,7 @@
     saveCurrentUser();
   }
   
-  // ==================== CONSULTAR WALLET (BRADICHAIN + API) ====================
+  // ==================== CONSULTAR WALLET ====================
   async function consultarWalletBradichain() {
     const address = document.getElementById('searchWalletAddress').value.trim();
     const resultDiv = document.getElementById('searchResult');
@@ -411,6 +425,8 @@
         found = true;
       }
       
+      const balanceInUSD = balance * BRD_TO_USD;
+      
       resultDiv.innerHTML = `
         <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid ${found ? '#00ff66' : '#ffc800'}; border-radius: 20px; padding: 20px;">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
@@ -423,10 +439,10 @@
             </button>
           </div>
           <div class="metric-row"><span class="metric-label">📍 Wallet Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
-          <div class="metric-row"><span class="metric-label">💰 Current Balance:</span><span class="metric-value" style="color: #00ff66; font-size: 1.5rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
-          <div class="metric-row"><span class="metric-label">💎 Currency:</span><span class="metric-value">BRD (Bradicoin)</span></div>
+          <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
+          <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${balanceInUSD.toLocaleString()} USD</span></div>
+          <div class="metric-row"><span class="metric-label">📊 Exchange Rate:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
           <div class="metric-row"><span class="metric-label">🔗 Network:</span><span class="metric-value">Bradichain Mainnet</span></div>
-          <div class="metric-row"><span class="metric-label">⏱️ Last Check:</span><span class="metric-value">${new Date().toLocaleString()}</span></div>
           <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
             <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copy Address</button>
             <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> View Transactions</button>
@@ -458,113 +474,75 @@
     showStatus(`📋 Address copied to clipboard!`, 'searchStatus', 'success');
   }
   
-  // ==================== API ====================
-  async function checkBalanceOnChain() {
-    if(!currentUser) return;
-    showStatus('🔍 Consulting blockchain...', 'status', 'info');
-    try {
-      const response = await fetch(`${API_URL}/api/balance/${currentUser.walletAddress}`);
-      const data = await response.json();
-      if(data.success && data.data) {
-        currentUser.balance = data.data.balance;
-        saveCurrentUser();
-        showStatus(`✅ Balance: ${currentUser.balance.toLocaleString()} BRD`, 'status', 'success');
-        renderDashboard();
-      } else {
-        showStatus(`⚠️ ${data.error || 'Wallet not found on chain'}`, 'status', 'error');
-      }
-    } catch(error) {
-      showStatus(`⚠️ Using local balance`, 'status', 'error');
-    }
-  }
-  
-  async function sendBRD(toAddress, amount) {
-    if(!currentUser) return;
-    if(!toAddress) { showStatus('📍 Enter destination address', 'sendStatus', 'error'); return; }
-    if(amount <= 0) { showStatus('💰 Invalid amount', 'sendStatus', 'error'); return; }
-    if(amount > currentUser.balance) { showStatus('⚠️ Insufficient balance', 'sendStatus', 'error'); return; }
-    
-    showStatus(`⏳ Sending ${amount} BRD...`, 'sendStatus', 'info');
-    try {
-      const response = await fetch(`${API_URL}/api/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromAddress: currentUser.walletAddress,
-          toAddress: toAddress,
-          amount: amount
-        })
-      });
-      const result = await response.json();
-      
-      if(result.success) {
-        currentUser.balance = result.data?.newBalance || (currentUser.balance - amount);
-        const bonus = result.data?.bonus || 0;
-        saveCurrentUser();
-        addTransaction('SENT', `Sent to ${toAddress.substring(0, 20)}...`, amount, toAddress);
-        if(bonus > 0) addTransaction('BONUS', `Auto-repletion bonus (∞ Reserve Fund)`, bonus, null);
-        showStatus(`✅ ${result.message}`, 'sendStatus', 'success');
-        renderDashboard();
-      } else {
-        showStatus(`❌ ${result.error}`, 'sendStatus', 'error');
-      }
-    } catch(error) {
-      showStatus(`❌ Error: ${error.message}`, 'sendStatus', 'error');
-    }
-  }
-  
   // ==================== STAKING ====================
   const stakeOptions = [
-    { name: "30 Minutes", seconds: 1800, minStake: 50, apr: 50, icon: "⏱️" },
-    { name: "1 Hour", seconds: 3600, minStake: 100, apr: 50, icon: "⌛" },
-    { name: "1 Day", seconds: 86400, minStake: 500, apr: 50, icon: "📅" }
+    { name: "2 Minutes", seconds: 120, minStake: 1, apr: APR_2MIN, icon: "⚡" },
+    { name: "30 Minutes", seconds: 1800, minStake: 1, apr: APR_30MIN, icon: "⏱️" },
+    { name: "1 Hour", seconds: 3600, minStake: 1, apr: APR_1HOUR, icon: "⌛" },
+    { name: "1 Day", seconds: 86400, minStake: 10, apr: APR_1DAY, icon: "📅" }
   ];
   
-  function calcReward(amount, seconds) {
-    return amount * (0.50 * (seconds / 31536000));
+  function calcReward(amount, seconds, apr) {
+    const years = seconds / 31536000;
+    return amount * (apr / 100) * years;
   }
   
   function doStake(amount, option) {
     if(!currentUser) return;
-    if(amount <= 0 || amount > currentUser.balance) { showStatus('💰 Invalid amount', 'stakeStatus', 'error'); return; }
+    if(amount <= 0) { showStatus('💰 Enter a valid amount', 'stakeStatus', 'error'); return; }
+    if(amount > currentUser.balance) { showStatus('⚠️ Insufficient balance', 'stakeStatus', 'error'); return; }
     if(amount < option.minStake) { showStatus(`⚠️ Minimum ${option.minStake} BRD`, 'stakeStatus', 'error'); return; }
+    
     if(currentUser.activeStake && currentUser.activeStake.endTime > Date.now()) {
-      showStatus('🔒 You have an active stake!', 'stakeStatus', 'error');
+      showStatus('🔒 You have an active stake! Finish it first.', 'stakeStatus', 'error');
       return;
     }
     
+    // Auto-claim previous stake if expired
     if(currentUser.activeStake && currentUser.activeStake.endTime <= Date.now()) {
-      const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds);
+      const oldApr = currentUser.activeStake.apr;
+      const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds, oldApr);
       currentUser.balance += currentUser.activeStake.amount + reward;
-      addTransaction('STAKE_REWARD', `Staking reward (${currentUser.activeStake.name})`, reward, null);
+      addTransaction('STAKE_REWARD', `Reward from ${currentUser.activeStake.name} (${oldApr}% APR)`, reward);
     }
     
     currentUser.activeStake = {
       amount: amount,
       seconds: option.seconds,
       name: option.name,
+      apr: option.apr,
       endTime: Date.now() + (option.seconds * 1000),
       startTime: Date.now()
     };
     currentUser.balance -= amount;
-    addTransaction('STAKE', `Staked ${amount} BRD for ${option.name}`, amount, null);
+    addTransaction('STAKE', `Staked ${amount} BRD in ${option.name} (${option.apr}% APR)`, amount);
     saveCurrentUser();
     renderDashboard();
-    showStatus(`✅ Staked ${amount} BRD for ${option.name}!`, 'stakeStatus', 'success');
+    showStatus(`✅ ${amount} BRD staked in ${option.name}!`, 'stakeStatus', 'success');
   }
   
   function doUnstake() {
-    if(!currentUser || !currentUser.activeStake) { showStatus('🔓 No active stake', 'stakeStatus', 'error'); return; }
-    if(Date.now() < currentUser.activeStake.endTime) { showStatus('⏰ Stake still locked!', 'stakeStatus', 'error'); return; }
+    if(!currentUser || !currentUser.activeStake) {
+      showStatus('❌ No active stake', 'stakeStatus', 'error');
+      return;
+    }
     
-    const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds);
-    currentUser.balance += currentUser.activeStake.amount + reward;
-    addTransaction('UNSTAKE', `Unstaked ${currentUser.activeStake.amount} BRD`, currentUser.activeStake.amount, null);
-    addTransaction('STAKE_REWARD', `Staking reward earned`, reward, null);
+    if(Date.now() < currentUser.activeStake.endTime) {
+      showStatus('⏳ Stake still locked! Wait for timer to finish.', 'stakeStatus', 'error');
+      return;
+    }
+    
+    const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds, currentUser.activeStake.apr);
+    const totalReturn = currentUser.activeStake.amount + reward;
+    
+    currentUser.balance += totalReturn;
+    addTransaction('UNSTAKE', `Unstaked ${currentUser.activeStake.amount} BRD from ${currentUser.activeStake.name}`, currentUser.activeStake.amount);
+    addTransaction('REWARD', `Reward earned: ${reward.toFixed(4)} BRD (${currentUser.activeStake.apr}% APR)`, reward);
+    
     currentUser.activeStake = null;
     saveCurrentUser();
     renderDashboard();
-    showStatus(`✅ Unstaked! Received +${reward.toFixed(4)} BRD reward`, 'stakeStatus', 'success');
+    showStatus(`✅ Unstaked! Received ${totalReturn.toFixed(4)} BRD (${reward.toFixed(4)} reward)`, 'stakeStatus', 'success');
   }
   
   function getStakeProgress() {
@@ -577,18 +555,34 @@
   function getTimeRemaining() {
     if(!currentUser || !currentUser.activeStake) return null;
     const remaining = currentUser.activeStake.endTime - Date.now();
-    if(remaining <= 0) return '🎉 Matured! Ready to unstake';
+    if(remaining <= 0) return 'Ready to unstake!';
     const hours = Math.floor(remaining / 3600000);
     const mins = Math.floor((remaining % 3600000) / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
-    return `${hours}h ${mins}m ${secs}s`;
+    if(hours > 0) return `${hours}h ${mins}m ${secs}s`;
+    if(mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  }
+  
+  // ==================== SEND/RECEIVE ====================
+  function sendBRD(toAddress, amount) {
+    if(!currentUser) return;
+    if(!toAddress) { showStatus('📍 Enter destination address', 'sendStatus', 'error'); return; }
+    if(amount <= 0) { showStatus('💰 Invalid amount', 'sendStatus', 'error'); return; }
+    if(amount > currentUser.balance) { showStatus('⚠️ Insufficient balance', 'sendStatus', 'error'); return; }
+    
+    currentUser.balance -= amount;
+    addTransaction('SENT', `Sent ${amount} BRD to ${toAddress.substring(0,20)}...`, amount);
+    saveCurrentUser();
+    renderDashboard();
+    showStatus(`✅ Sent ${amount} BRD!`, 'sendStatus', 'success');
   }
   
   function simulateReceive(amount) {
     if(!currentUser) return;
     if(!amount || amount <= 0) { showStatus('💰 Invalid amount', 'sendStatus', 'error'); return; }
     currentUser.balance += amount;
-    addTransaction('RECEIVED', `Received from external wallet`, amount, null);
+    addTransaction('RECEIVED', `Received ${amount} BRD`, amount);
     saveCurrentUser();
     renderDashboard();
     showStatus(`✅ Received ${amount} BRD!`, 'sendStatus', 'success');
@@ -596,9 +590,7 @@
   
   function lookupOnBradichain() {
     if(!currentUser) return;
-    const url = `${BRADICHAIN_URL}/address/${currentUser.walletAddress}`;
-    window.open(url, '_blank');
-    showStatus('🔍 Opening Bradichain Explorer...', 'status', 'info');
+    window.open(`${BRADICHAIN_URL}/address/${currentUser.walletAddress}`, '_blank');
   }
   
   function showStatus(msg, elementId, type = 'info') {
@@ -606,9 +598,7 @@
     if(el) {
       el.innerHTML = msg;
       el.className = `status-msg status-${type}`;
-      setTimeout(() => {
-        if(el.innerHTML === msg) el.innerHTML = '';
-      }, 5000);
+      setTimeout(() => { if(el.innerHTML === msg) el.innerHTML = ''; }, 5000);
     }
   }
   
@@ -619,11 +609,19 @@
   function renderAuth() {
     const html = `
       <div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
-        <div class="glass-card" style="max-width: 480px; width: 100%; padding: 40px; text-align: center;">
+        <div class="glass-card" style="max-width: 520px; width: 100%; padding: 40px; text-align: center;">
           <div class="logo-icon" style="margin: 0 auto 20px; width: 80px; height: 80px; font-size: 40px;">💰</div>
           <h1 style="font-size: 1.8rem; margin-bottom: 10px;">BRADICOIN</h1>
           <p style="color: #a855f7; margin-bottom: 20px;">RESERVE FUND</p>
-          <p style="color: #00f2ff; font-size: 12px; margin-bottom: 30px;">💎 Total Reserve: ${RESERVE_SUPPLY.toLocaleString()} BRD</p>
+          
+          <div style="background: rgba(0,242,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 20px;">
+            <p style="color: #00f2ff; font-size: 13px;">💎 RESERVE FUND (BRD)</p>
+            <p style="font-size: 18px; font-weight: bold;">${RESERVE_SUPPLY_BRD.toLocaleString()} BRD</p>
+            <p style="color: #ffaa66; font-size: 13px; margin-top: 8px;">💵 RESERVE FUND (USD)</p>
+            <p style="font-size: 18px; font-weight: bold;">$${RESERVE_SUPPLY_USD.toLocaleString()} USD</p>
+            <p style="color: #66ff66; font-size: 11px; margin-top: 8px;">📊 1 BRD = $${BRD_TO_USD} USD</p>
+          </div>
+          
           <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/3 registered</p>
           
           ${showLogin ? `
@@ -643,7 +641,6 @@
           
           <hr style="margin: 30px 0 20px 0;">
           <button id="clearDataBtn" class="btn clear-data-btn" style="width: 100%;"><i class="fas fa-trash-alt"></i> Clear All Data (Reset)</button>
-          <p style="font-size: 10px; margin-top: 15px; color: #888;">⚠️ This will delete all accounts and create new ones</p>
         </div>
       </div>
     `;
@@ -668,7 +665,6 @@
       };
       document.getElementById('switchLogin').onclick = (e) => { e.preventDefault(); showLogin = true; loginError = ''; renderAuth(); };
     }
-    
     document.getElementById('clearDataBtn').onclick = clearAllData;
   }
   
@@ -678,16 +674,24 @@
     const progress = getStakeProgress();
     const timeLeft = getTimeRemaining();
     const activeStake = currentUser.activeStake;
-    const reward = activeStake ? calcReward(activeStake.amount, activeStake.seconds).toFixed(4) : 0;
     
-    let stakeHtml = `<div style="text-align: center; padding: 20px;">💎 No active stake</div>`;
+    let expectedReward = 0;
+    if(activeStake) {
+      expectedReward = calcReward(activeStake.amount, activeStake.seconds, activeStake.apr);
+    }
+    
+    const userBalanceUSD = currentUser.balance * BRD_TO_USD;
+    
+    let stakeHtml = `<div style="text-align: center; padding: 30px; color: #888;">💎 No active stake</div>`;
     if(activeStake) {
       stakeHtml = `
         <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
-        <div style="text-align: center; margin-top: 12px;">
+        <div style="text-align: center; margin-top: 15px;">
           <div><strong>🔒 ${activeStake.amount.toLocaleString()} BRD staked</strong></div>
-          <div style="font-size: 12px; margin-top: 5px;">⏱️ ${activeStake.name} - ${timeLeft}</div>
-          <div style="font-size: 11px; color: #00f2ff; margin-top: 5px;">🎁 Expected reward: ${reward} BRD (50% APR)</div>
+          <div style="font-size: 12px; margin-top: 5px;">⏱️ ${activeStake.name}</div>
+          <div style="font-size: 12px; color: #00f2ff;">Time remaining: ${timeLeft}</div>
+          <div style="font-size: 11px; color: #ffaa66; margin-top: 5px;">🎁 Expected reward: ${expectedReward.toFixed(4)} BRD</div>
+          <div style="font-size: 11px;">📈 APR: ${activeStake.apr}%</div>
         </div>
       `;
     }
@@ -696,20 +700,20 @@
       <div class="staking-item">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div><span style="font-size: 20px;">${opt.icon}</span> <strong>${opt.name}</strong></div>
-          <span class="badge" style="background: linear-gradient(135deg, #a855f7, #3b82f6); color: white;">${opt.apr}% APR</span>
+          <span class="badge" style="background: ${opt.apr >= 130 ? '#ff4444' : '#3b82f6'}; color: white;">${opt.apr}% APR</span>
         </div>
         <div style="font-size: 11px; margin: 8px 0;">Minimum: ${opt.minStake} BRD</div>
         <input type="number" id="stakeAmt_${opt.name.replace(/\s/g,'')}" class="input" placeholder="Amount to stake" style="margin: 8px 0; padding: 10px;">
-        <button class="btn btn-outline stakeBtn" data-seconds="${opt.seconds}" data-name="${opt.name}" style="width: 100%;">🔒 Stake ${opt.name}</button>
+        <button class="btn btn-outline stakeBtn" data-seconds="${opt.seconds}" data-name="${opt.name}" data-apr="${opt.apr}" data-min="${opt.minStake}" style="width: 100%;">🔒 Stake ${opt.name}</button>
       </div>
     `).join('');
     
     const transactions = currentUser.transactions || [];
     const historyHtml = transactions.length === 0 
       ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ No transactions yet</td></tr>'
-      : transactions.map(t => `
+      : transactions.slice(0, 20).map(t => `
         <tr>
-          <td style="font-size: 11px;">${t.date}</td>
+          <td style="font-size: 10px;">${t.date}</td>
           <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
           <td style="font-size: 11px;">${t.details}</td>
           <td>${t.amount?.toLocaleString() || 0} BRD</td>
@@ -728,7 +732,21 @@
         </div>
       </div>
       
-      <!-- Search Wallet Section -->
+      <!-- RESERVE FUND CARDS -->
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px;">
+        <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
+          <div class="balance-label">💎 RESERVE FUND (BRD)</div>
+          <div class="balance-amount" style="font-size: 1.8rem;">${RESERVE_SUPPLY_BRD.toLocaleString()}</div>
+          <div style="font-size: 11px; margin-top: 8px;">100 Quadrilhões de BRD</div>
+        </div>
+        <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
+          <div class="balance-label">💵 RESERVE FUND (USD)</div>
+          <div class="balance-amount" style="font-size: 1.8rem;">$${RESERVE_SUPPLY_USD.toLocaleString()}</div>
+          <div style="font-size: 11px; margin-top: 8px;">1 BRD = $${BRD_TO_USD} USD</div>
+        </div>
+      </div>
+      
+      <!-- SEARCH WALLET -->
       <div class="glass-card search-wallet-section" style="padding: 24px; margin-bottom: 24px;">
         <div class="card-header"><i class="fas fa-search"></i> Consult Wallet on Bradichain <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain.com</span></div>
         <div class="search-wallet-box">
@@ -740,96 +758,100 @@
         <div id="searchStatus" class="status-msg"></div>
       </div>
       
-      <div class="balance-card glass-card">
-        <div class="balance-label">TOTAL BALANCE</div>
-        <div class="balance-amount">${currentUser.balance.toLocaleString()} <span style="font-size: 1rem;">BRD</span></div>
-        <div style="font-size: 11px; margin-top: 8px;">💎 Reserve Fund: ${RESERVE_SUPPLY.toLocaleString()} BRD</div>
+      <!-- USER BALANCE (BRD e USD) -->
+      <div class="glass-card user-balance-card" style="padding: 30px; text-align: center; margin-bottom: 24px;">
+        <div class="balance-label">💰 MY BALANCE</div>
+        <div class="balance-amount" style="font-size: 2rem;">${currentUser.balance.toLocaleString()} <span style="font-size: 1rem;">BRD</span></div>
+        <div class="balance-label" style="margin-top: 15px;">💵 MY BALANCE IN DOLLARS</div>
+        <div class="balance-amount" style="font-size: 2rem;">$${userBalanceUSD.toLocaleString()} <span style="font-size: 0.9rem;">USD</span></div>
+        <div style="font-size: 12px; margin-top: 12px;">📊 1 BRD = $${BRD_TO_USD} USD</div>
       </div>
       
       <div class="grid">
+        <!-- WALLET CARD -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-wallet"></i> My Wallet</div>
           <div class="wallet-box">
             <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">📌 ADDRESS</div>
-            <div style="font-family: monospace; font-size: 11px; word-break: break-all;">${currentUser.walletAddress}</div>
+            <div style="font-family: monospace; font-size: 10px; word-break: break-all;">${currentUser.walletAddress}</div>
           </div>
           <div class="inline-buttons">
-            <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1; padding: 10px;">📋 Copy</button>
-            <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1; padding: 10px;"><i class="fas fa-link"></i> Explorer</button>
+            <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1;"><i class="fas fa-copy"></i> Copy</button>
+            <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1;"><i class="fas fa-link"></i> Explorer</button>
           </div>
-          <button id="checkChainBtn" class="btn btn-primary" style="width: 100%; margin-top: 12px;">🔄 Sync with Blockchain</button>
           <div class="wallet-box" style="margin-top: 16px;">
-            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 SEED PHRASE (12 words)</div>
-            <div style="font-family: monospace; font-size: 10px; word-break: break-all;">${currentUser.seedPhrase}</div>
+            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 SEED PHRASE</div>
+            <div style="font-family: monospace; font-size: 9px; word-break: break-all;">${currentUser.seedPhrase}</div>
           </div>
         </div>
         
+        <!-- STAKING CARD -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-lock"></i> Staking Pools</div>
+          <div style="margin-bottom: 12px; font-size: 11px; color: #ffaa66;">⚡ NEW: 2 Minutes with 130% APR!</div>
           ${stakeOptionsHtml}
           <div id="stakeStatus" class="status-msg"></div>
           <hr>
+          <div class="card-header" style="margin-top: 10px;"><i class="fas fa-chart-line"></i> Active Stake</div>
           ${stakeHtml}
-          <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim Rewards</button>
+          <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim</button>
         </div>
         
+        <!-- SEND/RECEIVE CARD -->
         <div class="glass-card" style="padding: 24px;">
           <div class="card-header"><i class="fas fa-exchange-alt"></i> Send / Receive</div>
-          <input type="text" id="sendTo" class="input" placeholder="📍 Recipient Address (Br...)" style="margin-bottom: 12px;">
+          <input type="text" id="sendTo" class="input" placeholder="📍 Recipient Address" style="margin-bottom: 12px;">
           <input type="number" id="sendAmount" class="input" placeholder="💰 Amount (BRD)" style="margin-bottom: 12px;">
           <button id="sendBtn" class="btn btn-primary" style="width: 100%;">✈️ Send BRD</button>
           <div id="sendStatus" class="status-msg"></div>
           
           <hr>
           
-          <input type="number" id="receiveAmount" class="input" placeholder="💰 Amount to receive" style="margin-bottom: 12px;">
+          <input type="number" id="receiveAmount" class="input" placeholder="💰 Amount to receive (BRD)" style="margin-bottom: 12px;">
           <button id="receiveBtn" class="btn btn-success" style="width: 100%;">📥 Receive (Simulate)</button>
         </div>
       </div>
       
+      <!-- TRANSACTIONS -->
       <div class="glass-card" style="padding: 24px;">
         <div class="card-header"><i class="fas fa-history"></i> Transaction History</div>
         <div class="history-container">
           <table class="history-table">
-            <thead><tr><th>Date/Time</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
             <tbody>${historyHtml}</tbody>
           </table>
         </div>
       </div>
       
       <footer>
-        <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 50% APR | ∞ Auto-Repletion | Max 3 Users | Powered by Bradichain
+        <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 1 BRD = $10 USD | Reserve: 100.000.000.000.000.000 BRD | 130% APR (2min/30min) | Powered by Bradichain
       </footer>
     `;
     
     document.getElementById('app').innerHTML = html;
     
+    // Event listeners
     document.getElementById('logoutBtn').onclick = logout;
     document.getElementById('copyAddressBtn').onclick = () => {
       navigator.clipboard.writeText(currentUser.walletAddress);
       showStatus('📋 Address copied!', 'sendStatus', 'success');
     };
     document.getElementById('lookupChainBtn').onclick = lookupOnBradichain;
-    document.getElementById('checkChainBtn').onclick = checkBalanceOnChain;
     document.getElementById('sendBtn').onclick = () => sendBRD(document.getElementById('sendTo').value, parseFloat(document.getElementById('sendAmount').value));
     document.getElementById('receiveBtn').onclick = () => simulateReceive(parseFloat(document.getElementById('receiveAmount').value));
     document.getElementById('unstakeBtn').onclick = doUnstake;
     document.getElementById('consultWalletBtn').onclick = consultarWalletBradichain;
     document.getElementById('openExplorerBtn').onclick = () => {
-      const address = document.getElementById('searchWalletAddress').value.trim();
-      if(address) openBradichainExplorer(address);
-      else showStatus('📌 Enter a wallet address first', 'searchStatus', 'error');
+      const addr = document.getElementById('searchWalletAddress').value.trim();
+      if(addr) openBradichainExplorer(addr);
+      else showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
     };
-    document.getElementById('searchWalletAddress').addEventListener('keypress', (e) => {
-      if(e.key === 'Enter') consultarWalletBradichain();
-    });
     
     document.querySelectorAll('.stakeBtn').forEach(btn => {
       btn.onclick = () => {
-        const seconds = parseInt(btn.dataset.seconds);
         const name = btn.dataset.name;
         const amount = parseFloat(document.getElementById(`stakeAmt_${name.replace(/\s/g,'')}`).value);
-        const option = stakeOptions.find(o => o.seconds === seconds);
+        const option = stakeOptions.find(o => o.name === name);
         if(option && amount > 0) doStake(amount, option);
         else showStatus('💰 Enter a valid amount', 'stakeStatus', 'error');
       };
