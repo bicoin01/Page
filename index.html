@@ -337,8 +337,6 @@
     try {
       const response = await fetch(`${API_URL}/api/balance/${address}`);
       const data = await response.json();
-      
-      // Agora a API sempre retorna success: true, mesmo se o endereço não existir
       if (data && data.success && data.data) {
         return data.data.balance || 0;
       }
@@ -348,15 +346,114 @@
       return null;
     }
   }
+
+  async function sendBRDToAPI(fromAddress, toAddress, amount) {
+    try {
+      const response = await fetch(`${API_URL}/api/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromAddress, toAddress, amount })
+      });
+      const data = await response.json();
+      if (data && data.success) {
+        return data.data;
+      }
+      return null;
+    } catch (error) {
+      console.log('⚠️ API send error:', error.message);
+      return null;
+    }
+  }
+
+  async function registerUserOnAPI(username, password) {
+    try {
+      const response = await fetch(`${API_URL}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      return data.success;
+    } catch (error) {
+      console.log('⚠️ Could not register on API:', error.message);
+      return false;
+    }
+  }
+
+  async function syncWalletWithBlockchain() {
+    if (!currentUser) {
+      showStatus('❌ No user logged in', 'syncStatus', 'error');
+      return;
+    }
+
+    showStatus('🔄 Syncing with blockchain...', 'syncStatus', 'info');
+
+    try {
+      const apiBalance = await syncBalanceWithAPI(currentUser.walletAddress);
+
+      if (apiBalance !== null) {
+        if (apiBalance > currentUser.balance) {
+          currentUser.balance = apiBalance;
+          currentUser.lastSync = new Date().toISOString();
+          saveCurrentUser();
+          renderDashboard();
+          showStatus(`✅ Synced! Balance: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
+        } else if (apiBalance < currentUser.balance) {
+          showStatus(`✅ Local balance (${currentUser.balance.toLocaleString()} BRD) is higher. Keeping local.`, 'syncStatus', 'info');
+        } else {
+          showStatus(`✅ Balance is up to date: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
+        }
+      } else {
+        showStatus('⚠️ Could not connect to API. Using local balance.', 'syncStatus', 'error');
+      }
+    } catch (error) {
+      showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
+    }
+  }
   
   // ==================== REGISTRO E LOGIN ====================
+  async function registerUser(username, password) {
+    if (users.length >= 3) return { success: false, message: '⚠️ Maximum 3 users allowed' };
+    if (users.find(u => u.username === username)) return { success: false, message: '⚠️ Username already exists' };
+    if (username.length < 3) return { success: false, message: '⚠️ Username must be at least 3 characters' };
+    if (password.length < 4) return { success: false, message: '⚠️ Password must be at least 4 characters' };
+
+    const initialBalance = RESERVE_SUPPLY_BRD;
+
+    const newUser = {
+      id: Date.now(),
+      username: username,
+      password: password,
+      walletAddress: generateWalletAddress(),
+      seedPhrase: generateSeedPhrase(),
+      balance: initialBalance,
+      activeStake: null,
+      transactions: [],
+      createdAt: new Date().toISOString(),
+      lastSync: null
+    };
+
+    users.push(newUser);
+    saveUsers();
+
+    // Registra na API
+    try {
+      await registerUserOnAPI(username, password);
+      console.log('✅ User registered on API');
+    } catch (error) {
+      console.log('⚠️ Could not register on API:', error.message);
+    }
+
+    return { success: true, message: '✅ Account created successfully!', wallet: newUser.walletAddress };
+  }
+  
   async function loginUser(username, password) {
     const user = users.find(u => u.username === username && u.password === password);
     if (!user) {
       return { success: false, message: '❌ Invalid username or password' };
     }
 
-    // Sincroniza saldo com a API (agora não dá mais 404)
+    // Sincroniza saldo com a API
     try {
       const apiBalance = await syncBalanceWithAPI(user.walletAddress);
       if (apiBalance !== null && apiBalance > user.balance) {
@@ -372,6 +469,29 @@
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
     return { success: true };
+  }
+  
+  function logout() {
+    currentUser = null;
+    localStorage.removeItem('bradicoin_premium_session');
+    render();
+  }
+  
+  function loadSession() {
+    try {
+      const saved = localStorage.getItem('bradicoin_premium_session');
+      if(saved) {
+        const session = JSON.parse(saved);
+        const user = users.find(u => u.id === session.id);
+        if(user) {
+          currentUser = user;
+          return true;
+        }
+      }
+    } catch(e) {
+      console.error('Error loading session:', e);
+    }
+    return false;
   }
   
   // ==================== TRANSAÇÕES ====================
@@ -397,7 +517,7 @@
   }
   
   // ==================== CONSULTAR WALLET ====================
-    async function consultarWalletBradichain() {
+  async function consultarWalletBradichain() {
     const address = document.getElementById('searchWalletAddress').value.trim();
     const resultDiv = document.getElementById('searchResult');
     
@@ -460,6 +580,17 @@
       `;
       showStatus(`❌ API connection error`, 'searchStatus', 'error');
     }
+  }
+  
+  function openBradichainExplorer(address) {
+    const url = `${BRADICHAIN_URL}/address/${address}`;
+    window.open(url, '_blank');
+    showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
+  }
+  
+  function copyToClipboardManual(text) {
+    navigator.clipboard.writeText(text);
+    showStatus(`📋 Address copied to clipboard!`, 'searchStatus', 'success');
   }
   
   // ==================== STAKING ====================
@@ -597,7 +728,9 @@
     if(el) {
       el.innerHTML = msg;
       el.className = `status-msg status-${type}`;
-      setTimeout(() => { if(el.innerHTML === msg) el.innerHTML = ''; }, 5000);
+      setTimeout(function() { 
+        if(el.innerHTML === msg) el.innerHTML = ''; 
+      }, 5000);
     }
   }
   
@@ -728,7 +861,8 @@
       `;
     }
     
-    const stakeOptionsHtml = stakeOptions.map(opt => `
+    const stakeOptionsHtml = stakeOptions.map(function(opt) {
+      return `
       <div class="staking-item">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div><span style="font-size: 20px;">${opt.icon}</span> <strong>${opt.name}</strong></div>
@@ -738,19 +872,22 @@
         <input type="number" id="stakeAmt_${opt.name.replace(/\s/g,'')}" class="input" placeholder="Amount to stake" style="margin: 8px 0; padding: 10px;">
         <button class="btn btn-outline stakeBtn" data-seconds="${opt.seconds}" data-name="${opt.name}" data-apr="${opt.apr}" data-min="${opt.minStake}" style="width: 100%;">🔒 Stake ${opt.name}</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
     
     const transactions = currentUser.transactions || [];
     const historyHtml = transactions.length === 0 
       ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ No transactions yet</td></tr>'
-      : transactions.slice(0, 20).map(t => `
+      : transactions.slice(0, 20).map(function(t) {
+        return `
         <tr>
           <td style="font-size: 10px;">${t.date}</td>
           <td><span class="badge badge-${t.type.toLowerCase()}">${t.type}</span></td>
           <td style="font-size: 11px;">${t.details}</td>
           <td>${t.amount?.toLocaleString() || 0} BRD</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     
     const html = `
       <div class="header">
@@ -910,10 +1047,11 @@
     
     if(currentUser) {
       console.log('✅ Usuário logado, renderizando dashboard');
+      renderDashboard();
+      // Sincroniza após renderizar
       setTimeout(function() {
         syncWalletWithBlockchain();
       }, 1500);
-      renderDashboard();
     } else {
       console.log('❌ Nenhum usuário logado, renderizando login');
       renderAuth();
