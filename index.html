@@ -337,6 +337,8 @@
     try {
       const response = await fetch(`${API_URL}/api/balance/${address}`);
       const data = await response.json();
+      
+      // Agora a API sempre retorna success: true, mesmo se o endereço não existir
       if (data && data.success && data.data) {
         return data.data.balance || 0;
       }
@@ -346,114 +348,15 @@
       return null;
     }
   }
-
-  async function sendBRDToAPI(fromAddress, toAddress, amount) {
-    try {
-      const response = await fetch(`${API_URL}/api/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromAddress, toAddress, amount })
-      });
-      const data = await response.json();
-      if (data && data.success) {
-        return data.data;
-      }
-      return null;
-    } catch (error) {
-      console.log('⚠️ API send error:', error.message);
-      return null;
-    }
-  }
-
-  async function registerUserOnAPI(username, password) {
-    try {
-      const response = await fetch(`${API_URL}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      return data.success;
-    } catch (error) {
-      console.log('⚠️ Could not register on API:', error.message);
-      return false;
-    }
-  }
-
-  async function syncWalletWithBlockchain() {
-    if (!currentUser) {
-      showStatus('❌ No user logged in', 'syncStatus', 'error');
-      return;
-    }
-
-    showStatus('🔄 Syncing with blockchain...', 'syncStatus', 'info');
-
-    try {
-      const apiBalance = await syncBalanceWithAPI(currentUser.walletAddress);
-
-      if (apiBalance !== null) {
-        if (apiBalance > currentUser.balance) {
-          currentUser.balance = apiBalance;
-          currentUser.lastSync = new Date().toISOString();
-          saveCurrentUser();
-          renderDashboard();
-          showStatus(`✅ Synced! Balance: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
-        } else if (apiBalance < currentUser.balance) {
-          showStatus(`✅ Local balance (${currentUser.balance.toLocaleString()} BRD) is higher. Keeping local.`, 'syncStatus', 'info');
-        } else {
-          showStatus(`✅ Balance is up to date: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
-        }
-      } else {
-        showStatus('⚠️ Could not connect to API. Using local balance.', 'syncStatus', 'error');
-      }
-    } catch (error) {
-      showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
-    }
-  }
   
   // ==================== REGISTRO E LOGIN ====================
-  async function registerUser(username, password) {
-    if (users.length >= 3) return { success: false, message: '⚠️ Maximum 3 users allowed' };
-    if (users.find(u => u.username === username)) return { success: false, message: '⚠️ Username already exists' };
-    if (username.length < 3) return { success: false, message: '⚠️ Username must be at least 3 characters' };
-    if (password.length < 4) return { success: false, message: '⚠️ Password must be at least 4 characters' };
-
-    const initialBalance = RESERVE_SUPPLY_BRD;
-
-    const newUser = {
-      id: Date.now(),
-      username: username,
-      password: password,
-      walletAddress: generateWalletAddress(),
-      seedPhrase: generateSeedPhrase(),
-      balance: initialBalance,
-      activeStake: null,
-      transactions: [],
-      createdAt: new Date().toISOString(),
-      lastSync: null
-    };
-
-    users.push(newUser);
-    saveUsers();
-
-    // Registra na API
-    try {
-      await registerUserOnAPI(username, password);
-      console.log('✅ User registered on API');
-    } catch (error) {
-      console.log('⚠️ Could not register on API:', error.message);
-    }
-
-    return { success: true, message: '✅ Account created successfully!', wallet: newUser.walletAddress };
-  }
-  
   async function loginUser(username, password) {
     const user = users.find(u => u.username === username && u.password === password);
     if (!user) {
       return { success: false, message: '❌ Invalid username or password' };
     }
 
-    // Sincroniza saldo com a API
+    // Sincroniza saldo com a API (agora não dá mais 404)
     try {
       const apiBalance = await syncBalanceWithAPI(user.walletAddress);
       if (apiBalance !== null && apiBalance > user.balance) {
@@ -469,29 +372,6 @@
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
     return { success: true };
-  }
-  
-  function logout() {
-    currentUser = null;
-    localStorage.removeItem('bradicoin_premium_session');
-    render();
-  }
-  
-  function loadSession() {
-    try {
-      const saved = localStorage.getItem('bradicoin_premium_session');
-      if(saved) {
-        const session = JSON.parse(saved);
-        const user = users.find(u => u.id === session.id);
-        if(user) {
-          currentUser = user;
-          return true;
-        }
-      }
-    } catch(e) {
-      console.error('Error loading session:', e);
-    }
-    return false;
   }
   
   // ==================== TRANSAÇÕES ====================
@@ -517,7 +397,7 @@
   }
   
   // ==================== CONSULTAR WALLET ====================
-  async function consultarWalletBradichain() {
+    async function consultarWalletBradichain() {
     const address = document.getElementById('searchWalletAddress').value.trim();
     const resultDiv = document.getElementById('searchResult');
     
@@ -535,10 +415,12 @@
       
       let balance = 0;
       let found = false;
+      let username = 'Unknown';
       
       if (data && data.success && data.data) {
-        balance = data.data.balance;
-        found = true;
+        balance = data.data.balance || 0;
+        found = data.data.exists || false;
+        username = data.data.username || 'Unknown';
       }
       
       const balanceInUSD = balance * BRD_TO_USD;
@@ -554,6 +436,7 @@
               <i class="fas fa-external-link-alt"></i> Open on Bradichain
             </button>
           </div>
+          <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${username}</span></div>
           <div class="metric-row"><span class="metric-label">📍 Wallet Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
           <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
           <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${balanceInUSD.toLocaleString()} USD</span></div>
@@ -577,17 +460,6 @@
       `;
       showStatus(`❌ API connection error`, 'searchStatus', 'error');
     }
-  }
-  
-  function openBradichainExplorer(address) {
-    const url = `${BRADICHAIN_URL}/address/${address}`;
-    window.open(url, '_blank');
-    showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
-  }
-  
-  function copyToClipboardManual(text) {
-    navigator.clipboard.writeText(text);
-    showStatus(`📋 Address copied to clipboard!`, 'searchStatus', 'success');
   }
   
   // ==================== STAKING ====================
