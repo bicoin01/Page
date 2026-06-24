@@ -278,13 +278,24 @@
   
   // ==================== FUNÇÕES DE ARMAZENAMENTO ====================
   function loadUsers() {
-    const stored = localStorage.getItem('bradicoin_premium_data');
-    if(stored) users = JSON.parse(stored);
-    else users = [];
+    try {
+      const stored = localStorage.getItem('bradicoin_premium_data');
+      if(stored) {
+        users = JSON.parse(stored);
+      } else {
+        users = [];
+      }
+    } catch(e) {
+      users = [];
+    }
   }
   
   function saveUsers() {
-    localStorage.setItem('bradicoin_premium_data', JSON.stringify(users));
+    try {
+      localStorage.setItem('bradicoin_premium_data', JSON.stringify(users));
+    } catch(e) {
+      console.error('Error saving users:', e);
+    }
   }
   
   function saveCurrentUser() {
@@ -467,16 +478,18 @@
   }
   
   function loadSession() {
-    const saved = localStorage.getItem('bradicoin_premium_session');
-    if(saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('bradicoin_premium_session');
+      if(saved) {
         const session = JSON.parse(saved);
         const user = users.find(u => u.id === session.id);
         if(user) {
           currentUser = user;
           return true;
         }
-      } catch(e) {}
+      }
+    } catch(e) {
+      console.error('Error loading session:', e);
     }
     return false;
   }
@@ -776,18 +789,38 @@
           renderAuth();
         }
       };
-      document.getElementById('switchReg').onclick = (e) => { e.preventDefault(); showLogin = false; regError = ''; renderAuth(); };
+      document.getElementById('switchReg').onclick = function(e) { 
+        e.preventDefault(); 
+        showLogin = false; 
+        regError = ''; 
+        renderAuth(); 
+      };
     } else {
       document.getElementById('doReg').onclick = async function() {
         const user = document.getElementById('regUser').value;
         const pass = document.getElementById('regPass').value;
         const confirm = document.getElementById('regConfirm').value;
-        if(pass !== confirm) { regError = "Passwords don't match!"; renderAuth(); return; }
+        if(pass !== confirm) { 
+          regError = "Passwords don't match!"; 
+          renderAuth(); 
+          return; 
+        }
         const result = await registerUser(user, pass);
-        if(result.success) { showLogin = true; loginError = '✅ Account created! Please login.'; renderAuth(); }
-        else { regError = result.message; renderAuth(); }
+        if(result.success) { 
+          showLogin = true; 
+          loginError = '✅ Account created! Please login.'; 
+          renderAuth(); 
+        } else { 
+          regError = result.message; 
+          renderAuth(); 
+        }
       };
-      document.getElementById('switchLogin').onclick = (e) => { e.preventDefault(); showLogin = true; loginError = ''; renderAuth(); };
+      document.getElementById('switchLogin').onclick = function(e) { 
+        e.preventDefault(); 
+        showLogin = true; 
+        loginError = ''; 
+        renderAuth(); 
+      };
     }
     document.getElementById('clearDataBtn').onclick = clearAllData;
   }
@@ -855,8 +888,9 @@
         </div>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
-          <span style="font-size: 10px; opacity: 0.6;">${currentUser.lastSync ? '✅ Synced' : '⚠️ Not synced'}</span>
-          <button id="syncBtn" class="btn btn-success" style="padding: 6px 14px; font-size: 11px;"><i class="fas fa-sync-alt"></i> Sync</button>
+          <span class="network-status ${currentUser.lastSync ? 'online' : 'offline'}" id="networkStatus"></span>
+          <span style="font-size: 10px; opacity: 0.6;">${currentUser.lastSync ? 'Synced' : 'Not synced'}</span>
+          <button id="syncBtn" class="btn btn-sync" style="padding: 8px 16px; font-size: 11px;"><i class="fas fa-sync-alt"></i> Sync</button>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
       </div>
@@ -894,7 +928,7 @@
         <div class="balance-label" style="margin-top: 15px;">💵 MY BALANCE IN DOLLARS</div>
         <div class="balance-amount" style="font-size: 2rem;">$${userBalanceUSD.toLocaleString()} <span style="font-size: 0.9rem;">USD</span></div>
         <div style="font-size: 12px; margin-top: 12px;">📊 1 BRD = $${BRD_TO_USD} USD</div>
-        <div id="syncStatus" class="status-msg" style="margin-top: 8px;"></div>
+        <div id="syncStatus" class="status-msg sync-status"></div>
       </div>
       
       <div class="grid">
@@ -963,46 +997,69 @@
     // Event listeners
     document.getElementById('logoutBtn').onclick = logout;
     document.getElementById('syncBtn').onclick = syncWalletWithBlockchain;
-    document.getElementById('copyAddressBtn').onclick = () => {
+    document.getElementById('copyAddressBtn').onclick = function() {
       navigator.clipboard.writeText(currentUser.walletAddress);
       showStatus('📋 Address copied!', 'sendStatus', 'success');
     };
     document.getElementById('lookupChainBtn').onclick = lookupOnBradichain;
-    document.getElementById('sendBtn').onclick = () => sendBRD(document.getElementById('sendTo').value, parseFloat(document.getElementById('sendAmount').value));
-    document.getElementById('receiveBtn').onclick = () => simulateReceive(parseFloat(document.getElementById('receiveAmount').value));
+    document.getElementById('sendBtn').onclick = function() {
+      sendBRD(document.getElementById('sendTo').value, parseFloat(document.getElementById('sendAmount').value));
+    };
+    document.getElementById('receiveBtn').onclick = function() {
+      simulateReceive(parseFloat(document.getElementById('receiveAmount').value));
+    };
     document.getElementById('unstakeBtn').onclick = doUnstake;
     document.getElementById('consultWalletBtn').onclick = consultarWalletBradichain;
-    document.getElementById('openExplorerBtn').onclick = () => {
+    document.getElementById('openExplorerBtn').onclick = function() {
       const addr = document.getElementById('searchWalletAddress').value.trim();
       if(addr) openBradichainExplorer(addr);
       else showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
     };
     
-    document.querySelectorAll('.stakeBtn').forEach(btn => {
-      btn.onclick = () => {
+    document.querySelectorAll('.stakeBtn').forEach(function(btn) {
+      btn.onclick = function() {
         const name = btn.dataset.name;
-        const amount = parseFloat(document.getElementById(`stakeAmt_${name.replace(/\s/g,'')}`).value);
-        const option = stakeOptions.find(o => o.name === name);
+        const amount = parseFloat(document.getElementById('stakeAmt_' + name.replace(/\s/g,'')).value);
+        const option = stakeOptions.find(function(o) { return o.name === name; });
         if(option && amount > 0) doStake(amount, option);
         else showStatus('💰 Enter a valid amount', 'stakeStatus', 'error');
       };
     });
   }
   
+  // ==================== RENDER PRINCIPAL ====================
   function render() {
+    console.log('🔄 Renderizando página...');
     loadUsers();
     const hasSession = loadSession();
+    
+    console.log('📊 Users carregados:', users.length);
+    console.log('👤 Usuário atual:', currentUser ? currentUser.username : 'Nenhum');
+    
     if(currentUser) {
-      setTimeout(() => {
+      console.log('✅ Usuário logado, renderizando dashboard');
+      setTimeout(function() {
         syncWalletWithBlockchain();
       }, 1500);
       renderDashboard();
     } else {
+      console.log('❌ Nenhum usuário logado, renderizando login');
       renderAuth();
     }
   }
   
-  document.addEventListener('DOMContentLoaded', render);
+  // ==================== INICIALIZAÇÃO ====================
+  // Aguarda o DOM carregar completamente
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', render);
+  } else {
+    // DOM já está carregado
+    render();
+  }
+  
+  console.log('🚀 Bradicoin Reserve Fund carregado!');
+  console.log('📡 API URL:', API_URL);
+
 </script>
 </body>
 </html>
