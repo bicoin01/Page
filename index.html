@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Bradicoin Reserve Fund | BRD Token | Premium Dashboard</title>
+  <title>Bradicoin Reserve Fund | BRD Token</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    /* ===== TODO O SEU CSS ORIGINAL AQUI ===== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Orbitron', monospace;
@@ -162,6 +161,35 @@
       gap: 10px;
     }
     .card-header i { color: #a855f7; font-size: 1.3rem; }
+    .staking-item {
+      background: rgba(1, 5, 24, 0.5);
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+      border-left: 3px solid #a855f7;
+    }
+    .staking-item:hover { background: rgba(168, 85, 247, 0.1); transform: translateX(5px); }
+    .progress-container { background: rgba(255, 255, 255, 0.1); border-radius: 20px; height: 12px; overflow: hidden; margin: 12px 0; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #a855f7, #00f2ff);
+      border-radius: 20px;
+      transition: width 0.5s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
     .wallet-box {
       background: rgba(1, 5, 24, 0.6);
       border-radius: 20px;
@@ -214,7 +242,9 @@
 <div class="container" id="app"></div>
 
 <script>
-  // ==================== CONFIGURAÇÃO ====================
+  // ============================================================
+  // CONFIGURATION
+  // ============================================================
   const API_URL = 'https://bradicoin-api.onrender.com';
   const BRADICHAIN_URL = 'https://www.bradichain.com';
   const BRD_TO_USD = 10;
@@ -233,16 +263,18 @@
   let regError = '';
   let allWallets = [];
   
-  // ==================== FUNÇÕES DE ARMAZENAMENTO ====================
+  // ============================================================
+  // STORAGE FUNCTIONS
+  // ============================================================
   function loadUsers() {
     try {
       const stored = localStorage.getItem('bradicoin_premium_data');
       if(stored) {
         users = JSON.parse(stored);
-        console.log('📊 Usuários carregados:', users.length);
+        console.log('📊 Users loaded:', users.length);
       } else {
-        // CRIA O USUÁRIO Bradi10 AUTOMATICAMENTE SE NÃO EXISTIR
         users = [];
+        // Auto-create Bradi10 user
         const bradi10Exists = users.find(u => u.username === 'Bradi10');
         if (!bradi10Exists) {
           const newUser = {
@@ -260,7 +292,7 @@
           };
           users.push(newUser);
           saveUsers();
-          console.log('✅ Usuário Bradi10 criado automaticamente!');
+          console.log('✅ Bradi10 user auto-created!');
         }
       }
     } catch(e) {
@@ -271,9 +303,9 @@
   function saveUsers() {
     try {
       localStorage.setItem('bradicoin_premium_data', JSON.stringify(users));
-      console.log('💾 Usuários salvos:', users.length);
+      console.log('💾 Users saved:', users.length);
     } catch(e) {
-      console.error('❌ Erro ao salvar usuários:', e);
+      console.error('❌ Error saving users:', e);
     }
   }
   
@@ -283,12 +315,14 @@
       if(index !== -1) {
         users[index] = currentUser;
         saveUsers();
-        console.log('💾 Usuário atual salvo:', currentUser.username);
+        console.log('💾 Current user saved:', currentUser.username);
       }
     }
   }
   
-  // ==================== GERADOR DE WALLET ====================
+  // ============================================================
+  // WALLET GENERATORS
+  // ============================================================
   function generateWalletAddress() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let random = '';
@@ -307,37 +341,39 @@
     return seed.join(' ');
   }
   
-  // ==================== API FUNCTIONS ====================
+  // ============================================================
+  // API FUNCTIONS
+  // ============================================================
   async function syncBalanceWithAPI(address) {
     try {
-      console.log('🔄 Sincronizando com API:', address);
+      console.log('🔄 Syncing with API:', address);
       const response = await fetch(`${API_URL}/api/balance/${address}`);
       const data = await response.json();
-      console.log('📡 Resposta da API:', data);
+      console.log('📡 API Response:', data);
       
       if (data && data.success && data.data) {
         return data.data.balance || 0;
       }
       return null;
     } catch (error) {
-      console.log('⚠️ Erro na API:', error.message);
+      console.log('⚠️ API Error:', error.message);
       return null;
     }
   }
 
   async function sendBRDToAPI(fromAddress, toAddress, amount) {
     try {
-      console.log('💸 Enviando transação:', { fromAddress, toAddress, amount });
+      console.log('💸 Sending transaction:', { fromAddress, toAddress, amount });
       const response = await fetch(`${API_URL}/api/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromAddress, toAddress, amount })
       });
       const data = await response.json();
-      console.log('📡 Resposta do envio:', data);
+      console.log('📡 Send Response:', data);
       return data.success ? data.data : null;
     } catch (error) {
-      console.log('⚠️ Erro no envio:', error.message);
+      console.log('⚠️ Send Error:', error.message);
       return null;
     }
   }
@@ -350,10 +386,10 @@
         body: JSON.stringify({ username, password })
       });
       const data = await response.json();
-      console.log('📡 Resposta do registro:', data);
+      console.log('📡 Register Response:', data);
       return data.success;
     } catch (error) {
-      console.log('⚠️ Erro no registro na API:', error.message);
+      console.log('⚠️ Register Error:', error.message);
       return false;
     }
   }
@@ -364,12 +400,12 @@
       const data = await response.json();
       if (data && data.success && data.data) {
         allWallets = data.data.users || [];
-        console.log('📊 Wallets carregadas:', allWallets.length);
+        console.log('📊 Wallets loaded:', allWallets.length);
         return allWallets;
       }
       return [];
     } catch (error) {
-      console.log('⚠️ Erro ao listar wallets:', error.message);
+      console.log('⚠️ List wallets error:', error.message);
       return [];
     }
   }
@@ -378,7 +414,7 @@
     try {
       const response = await fetch(`${API_URL}/health`);
       const data = await response.json();
-      console.log('📡 Status da API:', data);
+      console.log('📡 API Status:', data);
       return data.status === 'ok';
     } catch (error) {
       console.log('⚠️ API Offline:', error.message);
@@ -386,23 +422,25 @@
     }
   }
   
-  // ==================== REGISTRO E LOGIN ====================
+  // ============================================================
+  // REGISTER & LOGIN
+  // ============================================================
   async function registerUser(username, password) {
-    console.log('📝 Registrando usuário:', username);
+    console.log('📝 Registering user:', username);
     
     if (users.length >= 3) {
-      return { success: false, message: '⚠️ Máximo de 3 usuários permitidos' };
+      return { success: false, message: '⚠️ Maximum 3 users allowed' };
     }
     
     if (users.find(u => u.username === username)) {
-      return { success: false, message: '⚠️ Username já existe' };
+      return { success: false, message: '⚠️ Username already exists' };
     }
     
     if (username.length < 3) {
-      return { success: false, message: '⚠️ Username deve ter pelo menos 3 caracteres' };
+      return { success: false, message: '⚠️ Username must be at least 3 characters' };
     }
     if (password.length < 4) {
-      return { success: false, message: '⚠️ Senha deve ter pelo menos 4 caracteres' };
+      return { success: false, message: '⚠️ Password must be at least 4 characters' };
     }
     
     const initialBalance = RESERVE_SUPPLY_BRD;
@@ -423,50 +461,50 @@
     
     users.push(newUser);
     saveUsers();
-    console.log('✅ Usuário criado localmente:', newUser.walletAddress);
+    console.log('✅ User created locally:', newUser.walletAddress);
     
     try {
       await registerUserOnAPI(username, password);
-      console.log('✅ Usuário registrado na API');
+      console.log('✅ User registered on API');
     } catch (error) {
-      console.log('⚠️ Erro ao registrar na API:', error.message);
+      console.log('⚠️ Could not register on API:', error.message);
     }
     
     return {
       success: true,
-      message: '✅ Conta criada com sucesso!',
+      message: '✅ Account created successfully!',
       wallet: newUser.walletAddress,
       balance: initialBalance
     };
   }
   
   async function loginUser(username, password) {
-    console.log('🔐 Tentando login:', username);
+    console.log('🔐 Trying login:', username);
     
     const user = users.find(u => u.username === username && u.password === password);
     if (!user) {
-      console.log('❌ Usuário não encontrado localmente');
-      return { success: false, message: '❌ Usuário ou senha inválidos' };
+      console.log('❌ User not found locally');
+      return { success: false, message: '❌ Invalid username or password' };
     }
     
-    console.log('✅ Usuário encontrado localmente:', user.walletAddress);
+    console.log('✅ User found locally:', user.walletAddress);
     
     try {
       const apiBalance = await syncBalanceWithAPI(user.walletAddress);
       if (apiBalance !== null && apiBalance !== user.balance) {
-        console.log('🔄 Atualizando saldo da API:', apiBalance);
+        console.log('🔄 Updating balance from API:', apiBalance);
         user.balance = apiBalance;
         user.lastSync = new Date().toISOString();
         user.syncedWithAPI = true;
         saveUsers();
       }
     } catch (error) {
-      console.log('⚠️ Erro ao sincronizar saldo:', error.message);
+      console.log('⚠️ Balance sync error:', error.message);
     }
     
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
-    console.log('✅ Login realizado:', currentUser.username);
+    console.log('✅ Login successful:', currentUser.username);
     
     await listAllWallets();
     
@@ -476,7 +514,7 @@
   function logout() {
     currentUser = null;
     localStorage.removeItem('bradicoin_premium_session');
-    console.log('🚪 Logout realizado');
+    console.log('🚪 Logout done');
     render();
   }
   
@@ -488,18 +526,20 @@
         const user = users.find(u => u.id === session.id);
         if(user) {
           currentUser = user;
-          console.log('🔑 Sessão carregada:', currentUser.username);
+          console.log('🔑 Session loaded:', currentUser.username);
           listAllWallets();
           return true;
         }
       }
     } catch(e) {
-      console.error('❌ Erro ao carregar sessão:', e);
+      console.error('❌ Session load error:', e);
     }
     return false;
   }
   
-  // ==================== TRANSAÇÕES ====================
+  // ============================================================
+  // TRANSACTIONS
+  // ============================================================
   function addTransaction(type, details, amount, address = null) {
     if(!currentUser) return;
     if(!currentUser.transactions) currentUser.transactions = [];
@@ -527,52 +567,58 @@
     }
     
     saveCurrentUser();
-    console.log('📝 Transação adicionada:', type, details);
+    console.log('📝 Transaction added:', type, details);
   }
   
-  // ==================== FUNÇÃO DE ENVIO CORRIGIDA ====================
+  // ============================================================
+  // SEND BRD (FIXED)
+  // ============================================================
   async function sendBRD(toAddress, amount) {
     if (!currentUser) {
-      showStatus('❌ Nenhum usuário logado', 'sendStatus', 'error');
+      showStatus('❌ No user logged in', 'sendStatus', 'error');
       return;
     }
     
     if (!toAddress || toAddress.trim() === '') {
-      showStatus('📍 Digite o endereço de destino', 'sendStatus', 'error');
+      showStatus('📍 Enter destination address', 'sendStatus', 'error');
       return;
     }
     
     if (!toAddress.startsWith('Br')) {
-      showStatus('⚠️ Endereço inválido. Deve começar com "Br"', 'sendStatus', 'error');
+      showStatus('⚠️ Invalid address. Must start with "Br"', 'sendStatus', 'error');
       return;
     }
     
     if (amount <= 0) {
-      showStatus('💰 Digite um valor válido', 'sendStatus', 'error');
+      showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
       return;
     }
     
-    if (amount > currentUser.balance) {
-      showStatus(`⚠️ Saldo insuficiente. Você tem ${currentUser.balance.toLocaleString()} BRD`, 'sendStatus', 'error');
+    // Use parseFloat to ensure proper number comparison
+    const userBalance = parseFloat(currentUser.balance);
+    const sendAmount = parseFloat(amount);
+    
+    console.log('💰 Balance check:', { userBalance, sendAmount });
+    
+    if (sendAmount > userBalance) {
+      showStatus(`⚠️ Insufficient balance. You have ${userBalance.toLocaleString()} BRD`, 'sendStatus', 'error');
       return;
     }
 
-    // Salva o estado do stake ANTES do envio
     const stakeSnapshot = currentUser.activeStake ? { 
       ...currentUser.activeStake,
       _snapshotTime: Date.now()
     } : null;
 
-    showStatus('⏳ Enviando transação para a blockchain...', 'sendStatus', 'info');
+    showStatus('⏳ Sending transaction to blockchain...', 'sendStatus', 'info');
 
     try {
-      const result = await sendBRDToAPI(currentUser.walletAddress, toAddress, amount);
+      const result = await sendBRDToAPI(currentUser.walletAddress, toAddress, sendAmount);
 
       if (result) {
-        const newBalance = result.newBalance !== undefined ? result.newBalance : (currentUser.balance - amount);
+        const newBalance = result.newBalance !== undefined ? result.newBalance : (userBalance - sendAmount);
         currentUser.balance = newBalance;
         
-        // 🔒 RESTAURA O STAKE (caso tenha sido perdido)
         if (stakeSnapshot && !currentUser.activeStake) {
           currentUser.activeStake = {
             amount: stakeSnapshot.amount,
@@ -582,57 +628,57 @@
             endTime: stakeSnapshot.endTime,
             startTime: stakeSnapshot.startTime
           };
-          console.log('🔒 Stake restaurado com sucesso!');
+          console.log('🔒 Stake restored successfully!');
         }
         
-        addTransaction('SENT', `Enviou ${amount.toLocaleString()} BRD para ${toAddress.substring(0, 20)}...`, amount, toAddress);
+        addTransaction('SENT', `Sent ${sendAmount.toLocaleString()} BRD to ${toAddress.substring(0, 20)}...`, sendAmount, toAddress);
         saveCurrentUser();
         renderDashboard();
-        showStatus(`✅ ${amount.toLocaleString()} BRD enviado com sucesso!`, 'sendStatus', 'success');
+        showStatus(`✅ ${sendAmount.toLocaleString()} BRD sent successfully!`, 'sendStatus', 'success');
       } else {
-        // Fallback: transação local
-        currentUser.balance -= amount;
+        // Fallback: local transaction
+        currentUser.balance = userBalance - sendAmount;
         
-        // Restaura o stake
         if (stakeSnapshot && !currentUser.activeStake) {
           currentUser.activeStake = stakeSnapshot;
-          console.log('🔒 Stake restaurado após falha');
+          console.log('🔒 Stake restored after failure');
         }
         
-        addTransaction('SENT', `Enviou ${amount.toLocaleString()} BRD para ${toAddress.substring(0, 20)}... (offline)`, amount, toAddress);
+        addTransaction('SENT', `Sent ${sendAmount.toLocaleString()} BRD to ${toAddress.substring(0, 20)}... (offline)`, sendAmount, toAddress);
         saveCurrentUser();
         renderDashboard();
-        showStatus(`✅ ${amount.toLocaleString()} BRD enviado (modo offline)`, 'sendStatus', 'info');
+        showStatus(`✅ ${sendAmount.toLocaleString()} BRD sent (offline mode)`, 'sendStatus', 'info');
       }
     } catch (error) {
-      // Em caso de erro, restaura o stake
       if (stakeSnapshot && !currentUser.activeStake) {
         currentUser.activeStake = stakeSnapshot;
         saveCurrentUser();
-        console.log('🔒 Stake restaurado após erro');
+        console.log('🔒 Stake restored after error');
       }
-      showStatus(`❌ Erro: ${error.message}`, 'sendStatus', 'error');
+      showStatus(`❌ Error: ${error.message}`, 'sendStatus', 'error');
     }
   }
   
-  // ==================== CONSULTAR WALLET ====================
+  // ============================================================
+  // CONSULT WALLET ON BRADICHAIN
+  // ============================================================
   async function consultarWalletBradichain() {
     const address = document.getElementById('searchWalletAddress').value.trim();
     const resultDiv = document.getElementById('searchResult');
     
     if (!address) {
-      showStatus('📌 Digite um endereço de wallet', 'searchStatus', 'error');
+      showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
       return;
     }
     
-    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consultando blockchain Bradicoin...</div>';
+    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting Bradichain blockchain...</div>';
     resultDiv.classList.add('show');
     
     try {
       const response = await fetch(`${API_URL}/api/balance/${address}`);
       const data = await response.json();
       
-      console.log('📡 Resultado da consulta:', data);
+      console.log('📡 Consult result:', data);
       
       let balance = 0;
       let found = false;
@@ -660,58 +706,58 @@
         <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid ${found ? '#00ff66' : '#ffc800'}; border-radius: 20px; padding: 20px;">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
             <div>
-              <span class="badge" style="background: ${found ? '#00ff66' : '#ffc800'}; color: #000;">${found ? '✅ WALLET ENCONTRADA' : '⚠️ WALLET NÃO ENCONTRADA'}</span>
+              <span class="badge" style="background: ${found ? '#00ff66' : '#ffc800'}; color: #000;">${found ? '✅ WALLET FOUND' : '⚠️ WALLET NOT FOUND'}</span>
               <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;"><i class="fas fa-link"></i> Bradichain</span>
               ${!apiConnected ? '<span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>' : ''}
             </div>
             <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
-              <i class="fas fa-external-link-alt"></i> Ver no Explorador
+              <i class="fas fa-external-link-alt"></i> View on Explorer
             </button>
           </div>
           <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${username}</span></div>
-          <div class="metric-row"><span class="metric-label">📍 Endereço:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
-          <div class="metric-row"><span class="metric-label">💰 Saldo (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
-          <div class="metric-row"><span class="metric-label">💵 Saldo (USD):</span><span class="metric-value" style="color: #ffaa66;">$${balanceInUSD.toLocaleString()} USD</span></div>
-          <div class="metric-row"><span class="metric-label">📊 Taxa de Câmbio:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
+          <div class="metric-row"><span class="metric-label">📍 Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+          <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${balance.toLocaleString()} BRD</span></div>
+          <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${balanceInUSD.toLocaleString()} USD</span></div>
+          <div class="metric-row"><span class="metric-label">📊 Exchange Rate:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
           ${found ? `
           <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copiar</button>
-            <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-paper-plane"></i> Enviar para esta wallet</button>
-            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> Ver Transações</button>
+            <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-copy"></i> Copy</button>
+            <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-paper-plane"></i> Send to this wallet</button>
+            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;"><i class="fas fa-chart-line"></i> View Transactions</button>
           </div>
           ` : `
           <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,200,0,0.2);">
-            <p style="color: #ffc800; font-size: 12px;">💡 Esta wallet não foi encontrada na blockchain. Verifique se o endereço está correto.</p>
+            <p style="color: #ffc800; font-size: 12px;">💡 This wallet was not found on the blockchain. Please check the address.</p>
           </div>
           `}
         </div>
       `;
-      showStatus(`✅ Consulta concluída`, 'searchStatus', 'success');
+      showStatus(`✅ Consultation completed`, 'searchStatus', 'success');
       
     } catch (error) {
-      console.error('❌ Erro na consulta:', error);
+      console.error('❌ Consult error:', error);
       resultDiv.innerHTML = `
         <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
           <div style="font-size: 48px;">❌</div>
-          <h3 style="color: #ff6464;">Erro de Conexão</h3>
-          <p>Não foi possível conectar à API Bradicoin.</p>
-          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">🌐 Abrir Explorador</button>
+          <h3 style="color: #ff6464;">Connection Error</h3>
+          <p>Could not connect to Bradicoin API.</p>
+          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">🌐 Open Bradichain Explorer</button>
         </div>
       `;
-      showStatus(`❌ Erro na consulta: ${error.message}`, 'searchStatus', 'error');
+      showStatus(`❌ API connection error`, 'searchStatus', 'error');
     }
   }
   
   function openBradichainExplorer(address) {
     const url = `${BRADICHAIN_URL}/address/${address}`;
     window.open(url, '_blank');
-    showStatus(`🔍 Abrindo ${url}`, 'searchStatus', 'info');
+    showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
   }
   
   function copyToClipboardManual(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        showStatus(`📋 Endereço copiado!`, 'searchStatus', 'success');
+        showStatus(`📋 Address copied!`, 'searchStatus', 'success');
       }).catch(() => {
         fallbackCopy(text);
       });
@@ -729,14 +775,16 @@
     textArea.select();
     try {
       document.execCommand('copy');
-      showStatus(`📋 Endereço copiado!`, 'searchStatus', 'success');
+      showStatus(`📋 Address copied!`, 'searchStatus', 'success');
     } catch (e) {
-      showStatus(`❌ Falha ao copiar`, 'searchStatus', 'error');
+      showStatus(`❌ Copy failed`, 'searchStatus', 'error');
     }
     document.body.removeChild(textArea);
   }
   
-  // ==================== STAKING CORRIGIDO ====================
+  // ============================================================
+  // STAKING - COMPLETELY FIXED
+  // ============================================================
   const stakeOptions = [
     { name: "2 Minutes", seconds: 120, minStake: 1, apr: APR_2MIN, icon: "⚡" },
     { name: "30 Minutes", seconds: 1800, minStake: 1, apr: APR_30MIN, icon: "⏱️" },
@@ -749,53 +797,84 @@
     return amount * (apr / 100) * years;
   }
   
+  // ============================================================
+  // DO STAKE - FIXED
+  // ============================================================
   function doStake(amount, option) {
-    if(!currentUser) return;
-    if(amount <= 0) { showStatus('💰 Digite um valor válido', 'stakeStatus', 'error'); return; }
-    if(amount > currentUser.balance) { showStatus('⚠️ Saldo insuficiente', 'stakeStatus', 'error'); return; }
-    if(amount < option.minStake) { showStatus(`⚠️ Mínimo ${option.minStake} BRD`, 'stakeStatus', 'error'); return; }
-    
-    if(currentUser.activeStake && currentUser.activeStake.endTime > Date.now()) {
-      showStatus('🔒 Você já tem um stake ativo!', 'stakeStatus', 'error');
+    if(!currentUser) {
+      showStatus('❌ No user logged in', 'stakeStatus', 'error');
       return;
     }
     
+    // Parse as float for proper comparison
+    const stakeAmount = parseFloat(amount);
+    const userBalance = parseFloat(currentUser.balance);
+    
+    console.log('💰 Staking check:', { userBalance, stakeAmount, option });
+    
+    if(isNaN(stakeAmount) || stakeAmount <= 0) {
+      showStatus('💰 Enter a valid amount', 'stakeStatus', 'error');
+      return;
+    }
+    
+    if(stakeAmount > userBalance) {
+      showStatus(`⚠️ Insufficient balance. You have ${userBalance.toLocaleString()} BRD`, 'stakeStatus', 'error');
+      return;
+    }
+    
+    if(stakeAmount < option.minStake) {
+      showStatus(`⚠️ Minimum ${option.minStake} BRD required`, 'stakeStatus', 'error');
+      return;
+    }
+    
+    if(currentUser.activeStake && currentUser.activeStake.endTime > Date.now()) {
+      showStatus('🔒 You already have an active stake!', 'stakeStatus', 'error');
+      return;
+    }
+    
+    // Process previous stake rewards if any
     if(currentUser.activeStake && currentUser.activeStake.endTime <= Date.now()) {
       const oldApr = currentUser.activeStake.apr;
       const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds, oldApr);
-      currentUser.balance += currentUser.activeStake.amount + reward;
-      addTransaction('STAKE_REWARD', `Recompensa de ${currentUser.activeStake.name} (${oldApr}% APR)`, reward);
+      currentUser.balance = parseFloat(currentUser.balance) + parseFloat(currentUser.activeStake.amount) + reward;
+      addTransaction('STAKE_REWARD', `Reward from ${currentUser.activeStake.name} (${oldApr}% APR)`, reward);
     }
     
+    // Create new stake
     currentUser.activeStake = {
-      amount: amount,
+      amount: stakeAmount,
       seconds: option.seconds,
       name: option.name,
       apr: option.apr,
       endTime: Date.now() + (option.seconds * 1000),
       startTime: Date.now()
     };
-    currentUser.balance -= amount;
-    addTransaction('STAKE', `Stake de ${amount.toLocaleString()} BRD em ${option.name} (${option.apr}% APR)`, amount);
+    
+    // Deduct from balance
+    currentUser.balance = parseFloat(currentUser.balance) - stakeAmount;
+    
+    addTransaction('STAKE', `Staked ${stakeAmount.toLocaleString()} BRD in ${option.name} (${option.apr}% APR)`, stakeAmount);
     saveCurrentUser();
     renderDashboard();
-    showStatus(`✅ ${amount.toLocaleString()} BRD em stake em ${option.name}!`, 'stakeStatus', 'success');
+    showStatus(`✅ ${stakeAmount.toLocaleString()} BRD staked in ${option.name}!`, 'stakeStatus', 'success');
   }
   
-  // ==================== FUNÇÃO UNSTAKE CORRIGIDA ====================
+  // ============================================================
+  // DO UNSTAKE - FIXED
+  // ============================================================
   function doUnstake() {
     if(!currentUser || !currentUser.activeStake) {
-      showStatus('❌ Nenhum stake ativo', 'stakeStatus', 'error');
+      showStatus('❌ No active stake', 'stakeStatus', 'error');
       return;
     }
     
     if(Date.now() < currentUser.activeStake.endTime) {
-      showStatus('⏳ Stake ainda bloqueado!', 'stakeStatus', 'error');
+      showStatus('⏳ Stake still locked!', 'stakeStatus', 'error');
       return;
     }
     
     try {
-      const stakeAmount = currentUser.activeStake.amount;
+      const stakeAmount = parseFloat(currentUser.activeStake.amount);
       const seconds = currentUser.activeStake.seconds;
       const apr = currentUser.activeStake.apr;
       const stakeName = currentUser.activeStake.name;
@@ -803,34 +882,33 @@
       const reward = calcReward(stakeAmount, seconds, apr);
       const totalReturn = stakeAmount + reward;
       
-      // ✅ ADICIONA AO SALDO (CORRIGIDO)
-      const oldBalance = currentUser.balance;
-      currentUser.balance += totalReturn;
-      const newBalance = currentUser.balance;
+      const oldBalance = parseFloat(currentUser.balance);
+      currentUser.balance = oldBalance + totalReturn;
+      const newBalance = parseFloat(currentUser.balance);
       
-      addTransaction('UNSTAKE', `Unstake de ${stakeAmount.toLocaleString()} BRD de ${stakeName} (${apr}% APR)`, stakeAmount);
-      addTransaction('REWARD', `Recompensa: ${reward.toFixed(4)} BRD (${apr}% APR)`, reward);
+      addTransaction('UNSTAKE', `Unstaked ${stakeAmount.toLocaleString()} BRD from ${stakeName} (${apr}% APR)`, stakeAmount);
+      addTransaction('REWARD', `Reward: ${reward.toFixed(4)} BRD (${apr}% APR)`, reward);
       
       currentUser.activeStake = null;
       saveCurrentUser();
       renderDashboard();
       
       showStatus(
-        `✅ Unstake! ${totalReturn.toFixed(4)} BRD adicionados (${reward.toFixed(4)} de recompensa) | Novo saldo: ${newBalance.toLocaleString()} BRD`, 
+        `✅ Unstaked! ${totalReturn.toFixed(4)} BRD added (${reward.toFixed(4)} reward) | New balance: ${newBalance.toLocaleString()} BRD`, 
         'stakeStatus', 
         'success'
       );
       
-      console.log('💰 UNSTAKE COMPLETO:');
-      console.log(`   Stake original: ${stakeAmount.toLocaleString()} BRD`);
-      console.log(`   Recompensa: ${reward.toFixed(4)} BRD`);
-      console.log(`   Total recebido: ${totalReturn.toFixed(4)} BRD`);
-      console.log(`   Saldo anterior: ${oldBalance.toLocaleString()} BRD`);
-      console.log(`   Novo saldo: ${newBalance.toLocaleString()} BRD`);
+      console.log('💰 UNSTAKE COMPLETE:');
+      console.log(`   Original stake: ${stakeAmount.toLocaleString()} BRD`);
+      console.log(`   Reward: ${reward.toFixed(4)} BRD`);
+      console.log(`   Total received: ${totalReturn.toFixed(4)} BRD`);
+      console.log(`   Previous balance: ${oldBalance.toLocaleString()} BRD`);
+      console.log(`   New balance: ${newBalance.toLocaleString()} BRD`);
       
     } catch (error) {
-      console.error('❌ Erro no unstake:', error);
-      showStatus(`❌ Erro ao fazer unstake: ${error.message}`, 'stakeStatus', 'error');
+      console.error('❌ Unstake error:', error);
+      showStatus(`❌ Unstake error: ${error.message}`, 'stakeStatus', 'error');
     }
   }
   
@@ -844,7 +922,7 @@
   function getTimeRemaining() {
     if(!currentUser || !currentUser.activeStake) return null;
     const remaining = currentUser.activeStake.endTime - Date.now();
-    if(remaining <= 0) return 'Pronto para unstake!';
+    if(remaining <= 0) return 'Ready to unstake!';
     const hours = Math.floor(remaining / 3600000);
     const mins = Math.floor((remaining % 3600000) / 60000);
     const secs = Math.floor((remaining % 60000) / 1000);
@@ -853,15 +931,21 @@
     return `${secs}s`;
   }
   
-  // ==================== RECEBER (SIMULAR) ====================
+  // ============================================================
+  // RECEIVE (SIMULATE)
+  // ============================================================
   function simulateReceive(amount) {
     if(!currentUser) return;
-    if(!amount || amount <= 0) { showStatus('💰 Valor inválido', 'sendStatus', 'error'); return; }
-    currentUser.balance += amount;
-    addTransaction('RECEIVED', `Recebeu ${amount.toLocaleString()} BRD`, amount);
+    const receiveAmount = parseFloat(amount);
+    if(!receiveAmount || receiveAmount <= 0) { 
+      showStatus('💰 Invalid amount', 'sendStatus', 'error'); 
+      return; 
+    }
+    currentUser.balance = parseFloat(currentUser.balance) + receiveAmount;
+    addTransaction('RECEIVED', `Received ${receiveAmount.toLocaleString()} BRD`, receiveAmount);
     saveCurrentUser();
     renderDashboard();
-    showStatus(`✅ ${amount.toLocaleString()} BRD recebido!`, 'sendStatus', 'success');
+    showStatus(`✅ ${receiveAmount.toLocaleString()} BRD received!`, 'sendStatus', 'success');
   }
   
   function lookupOnBradichain() {
@@ -876,46 +960,51 @@
       el.className = `status-msg status-${type}`;
       setTimeout(() => {
         if(el.innerHTML === msg) el.innerHTML = '';
-      }, 5000);
+      }, 6000);
     }
   }
   
-  // ==================== SYNC COM BLOCKCHAIN ====================
+  // ============================================================
+  // SYNC WITH BLOCKCHAIN
+  // ============================================================
   async function syncWalletWithBlockchain() {
     if (!currentUser) {
-      showStatus('❌ Nenhum usuário logado', 'syncStatus', 'error');
+      showStatus('❌ No user logged in', 'syncStatus', 'error');
       return;
     }
 
-    showStatus('🔄 Sincronizando com a blockchain...', 'syncStatus', 'info');
+    showStatus('🔄 Syncing with blockchain...', 'syncStatus', 'info');
 
     try {
       const apiBalance = await syncBalanceWithAPI(currentUser.walletAddress);
 
       if (apiBalance !== null) {
-        if (apiBalance > currentUser.balance) {
+        const currentBalance = parseFloat(currentUser.balance);
+        if (apiBalance > currentBalance) {
           currentUser.balance = apiBalance;
           currentUser.lastSync = new Date().toISOString();
           saveCurrentUser();
           renderDashboard();
-          showStatus(`✅ Sincronizado! Saldo: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
-        } else if (apiBalance < currentUser.balance) {
-          showStatus(`ℹ️ Saldo local (${currentUser.balance.toLocaleString()} BRD) é maior. Mantendo local.`, 'syncStatus', 'info');
+          showStatus(`✅ Synced! Balance: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
+        } else if (apiBalance < currentBalance) {
+          showStatus(`ℹ️ Local balance (${currentBalance.toLocaleString()} BRD) is higher. Keeping local.`, 'syncStatus', 'info');
         } else {
-          showStatus(`✅ Saldo atualizado: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
+          showStatus(`✅ Balance is up to date: ${apiBalance.toLocaleString()} BRD`, 'syncStatus', 'success');
         }
       } else {
-        showStatus('⚠️ API offline. Usando dados locais.', 'syncStatus', 'error');
+        showStatus('⚠️ API offline. Using local data.', 'syncStatus', 'error');
       }
       
       await listAllWallets();
       
     } catch (error) {
-      showStatus(`❌ Erro na sincronização: ${error.message}`, 'syncStatus', 'error');
+      showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
     }
   }
   
-  // ==================== RENDER ====================
+  // ============================================================
+  // RENDER FUNCTIONS
+  // ============================================================
   function renderAuth() {
     const html = `
       <div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
@@ -925,33 +1014,33 @@
           <p style="color: #a855f7; margin-bottom: 20px;">RESERVE FUND</p>
           
           <div style="background: rgba(0,242,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 20px;">
-            <p style="color: #00f2ff; font-size: 13px;">💎 RESERVA (BRD)</p>
+            <p style="color: #00f2ff; font-size: 13px;">💎 RESERVE (BRD)</p>
             <p style="font-size: 18px; font-weight: bold;">${RESERVE_SUPPLY_BRD.toLocaleString()} BRD</p>
-            <p style="color: #ffaa66; font-size: 13px; margin-top: 8px;">💵 RESERVA (USD)</p>
+            <p style="color: #ffaa66; font-size: 13px; margin-top: 8px;">💵 RESERVE (USD)</p>
             <p style="font-size: 18px; font-weight: bold;">$${RESERVE_SUPPLY_USD.toLocaleString()} USD</p>
             <p style="color: #66ff66; font-size: 11px; margin-top: 8px;">📊 1 BRD = $${BRD_TO_USD} USD</p>
           </div>
           
-          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Usuários: ${users.length}/3 registrados</p>
+          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/3 registered</p>
           
           ${showLogin ? `
             <input type="text" id="loginUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
             <input type="password" id="loginPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
             <div id="loginMsg" class="status-msg status-error" style="margin-bottom: 16px;">${loginError}</div>
-            <button id="doLogin" class="btn btn-primary" style="width: 100%;">🔐 Entrar</button>
-            <p style="margin-top: 24px; font-size: 13px;">Não tem conta? <a href="#" id="switchReg" style="color: #00f2ff;">Criar Conta</a></p>
+            <button id="doLogin" class="btn btn-primary" style="width: 100%;">🔐 Sign In</button>
+            <p style="margin-top: 24px; font-size: 13px;">No account? <a href="#" id="switchReg" style="color: #00f2ff;">Create Account</a></p>
           ` : `
             <input type="text" id="regUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
             <input type="password" id="regPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
-            <input type="password" id="regConfirm" class="input" placeholder="Confirmar Password" style="margin-bottom: 16px;">
+            <input type="password" id="regConfirm" class="input" placeholder="Confirm Password" style="margin-bottom: 16px;">
             <div id="regMsg" class="status-msg status-error" style="margin-bottom: 16px;">${regError}</div>
-            <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Registrar</button>
-            <p style="margin-top: 24px; font-size: 13px;">Já tem conta? <a href="#" id="switchLogin" style="color: #00f2ff;">Entrar</a></p>
+            <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
+            <p style="margin-top: 24px; font-size: 13px;">Already have an account? <a href="#" id="switchLogin" style="color: #00f2ff;">Sign In</a></p>
           `}
           
           <hr style="margin: 30px 0 20px 0;">
           <div style="display: flex; gap: 10px;">
-            <button id="checkAPI" class="btn btn-outline" style="flex: 1;"><i class="fas fa-plug"></i> Testar API</button>
+            <button id="checkAPI" class="btn btn-outline" style="flex: 1;"><i class="fas fa-plug"></i> Test API</button>
             <button id="clearDataBtn" class="btn btn-danger" style="flex: 1;"><i class="fas fa-trash-alt"></i> Reset</button>
           </div>
         </div>
@@ -965,7 +1054,7 @@
         const password = document.getElementById('loginPass').value;
         
         if(!username || !password) {
-          loginError = '❌ Digite usuário e senha';
+          loginError = '❌ Enter username and password';
           renderAuth();
           return;
         }
@@ -990,14 +1079,14 @@
         const pass = document.getElementById('regPass').value;
         const confirm = document.getElementById('regConfirm').value;
         if(pass !== confirm) { 
-          regError = "⚠️ Senhas não coincidem!"; 
+          regError = "⚠️ Passwords don't match!"; 
           renderAuth(); 
           return; 
         }
         const result = await registerUser(user, pass);
         if(result.success) { 
           showLogin = true; 
-          loginError = `✅ Conta criada! Saldo: ${result.balance.toLocaleString()} BRD`; 
+          loginError = `✅ Account created! Balance: ${result.balance.toLocaleString()} BRD`; 
           renderAuth(); 
         } else { 
           regError = result.message; 
@@ -1016,20 +1105,20 @@
     document.getElementById('checkAPI').onclick = async function() {
       const online = await checkAPIConnection();
       if(online) {
-        alert('✅ API Bradicoin está ONLINE!');
+        alert('✅ Bradicoin API is ONLINE!');
       } else {
-        alert('⚠️ API Bradicoin está OFFLINE. Usando dados locais.');
+        alert('⚠️ Bradicoin API is OFFLINE. Using local data.');
       }
     };
   }
   
   function clearAllData() {
-    if(confirm('⚠️ ATENÇÃO! Isso irá apagar TODOS os dados. Continuar?')) {
+    if(confirm('⚠️ WARNING! This will delete ALL data. Continue?')) {
       localStorage.removeItem('bradicoin_premium_data');
       localStorage.removeItem('bradicoin_premium_session');
       users = [];
       currentUser = null;
-      alert('✅ Dados limpos!');
+      alert('✅ Data cleared!');
       render();
     }
   }
@@ -1049,17 +1138,18 @@
       expectedReward = calcReward(activeStake.amount, activeStake.seconds, activeStake.apr);
     }
     
-    const userBalanceUSD = currentUser.balance * BRD_TO_USD;
+    const userBalance = parseFloat(currentUser.balance);
+    const userBalanceUSD = userBalance * BRD_TO_USD;
     
-    let stakeHtml = `<div style="text-align: center; padding: 30px; color: #888;">💎 Nenhum stake ativo</div>`;
+    let stakeHtml = `<div style="text-align: center; padding: 30px; color: #888;">💎 No active stake</div>`;
     if(activeStake) {
       stakeHtml = `
         <div class="progress-container"><div class="progress-fill" style="width: ${progress}%"></div></div>
         <div style="text-align: center; margin-top: 15px;">
-          <div><strong>🔒 ${activeStake.amount.toLocaleString()} BRD em stake</strong></div>
+          <div><strong>🔒 ${parseFloat(activeStake.amount).toLocaleString()} BRD staked</strong></div>
           <div style="font-size: 12px; margin-top: 5px;">⏱️ ${activeStake.name}</div>
-          <div style="font-size: 12px; color: #00f2ff;">Tempo restante: ${timeLeft}</div>
-          <div style="font-size: 11px; color: #ffaa66; margin-top: 5px;">🎁 Recompensa esperada: ${expectedReward.toFixed(4)} BRD</div>
+          <div style="font-size: 12px; color: #00f2ff;">Time remaining: ${timeLeft}</div>
+          <div style="font-size: 11px; color: #ffaa66; margin-top: 5px;">🎁 Expected reward: ${expectedReward.toFixed(4)} BRD</div>
           <div style="font-size: 11px;">📈 APR: ${activeStake.apr}%</div>
         </div>
       `;
@@ -1067,13 +1157,13 @@
     
     const stakeOptionsHtml = stakeOptions.map(function(opt) {
       return `
-      <div class="staking-item" style="background: rgba(1, 5, 24, 0.5); border-radius: 20px; padding: 16px; margin-bottom: 12px; transition: all 0.3s ease; border-left: 3px solid #a855f7;">
+      <div class="staking-item">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div><span style="font-size: 20px;">${opt.icon}</span> <strong>${opt.name}</strong></div>
           <span class="badge" style="background: ${opt.apr >= 130 ? '#ff4444' : '#3b82f6'}; color: white;">${opt.apr}% APR</span>
         </div>
-        <div style="font-size: 11px; margin: 8px 0;">Mínimo: ${opt.minStake} BRD</div>
-        <input type="number" id="stakeAmt_${opt.name.replace(/\s/g,'')}" class="input" placeholder="Valor em BRD" style="margin: 8px 0; padding: 10px;">
+        <div style="font-size: 11px; margin: 8px 0;">Minimum: ${opt.minStake} BRD</div>
+        <input type="number" id="stakeAmt_${opt.name.replace(/\s/g,'')}" class="input" placeholder="Amount to stake" style="margin: 8px 0; padding: 10px;">
         <button class="btn btn-outline stakeBtn" data-seconds="${opt.seconds}" data-name="${opt.name}" data-apr="${opt.apr}" data-min="${opt.minStake}" style="width: 100%;">🔒 Stake ${opt.name}</button>
       </div>
     `;
@@ -1081,7 +1171,7 @@
     
     const transactions = currentUser.transactions || [];
     const historyHtml = transactions.length === 0 
-      ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ Nenhuma transação ainda</td></tr>'
+      ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ No transactions yet</td></tr>'
       : transactions.slice(0, 20).map(function(t) {
         return `
         <tr>
@@ -1093,7 +1183,6 @@
       `;
       }).join('');
     
-    // Wallets disponíveis para envio
     const walletOptions = allWallets.map(w => 
       `<option value="${w.address}">${w.username} (${w.address.substring(0, 16)}...) - ${w.balance?.toLocaleString() || 0} BRD</option>`
     ).join('');
@@ -1109,26 +1198,26 @@
           <span class="network-status ${currentUser.lastSync ? 'online' : 'offline'}">
             ${currentUser.lastSync ? '🟢 Online' : '🔴 Offline'}
           </span>
-          <span style="font-size: 10px; opacity: 0.6;">${currentUser.lastSync ? new Date(currentUser.lastSync).toLocaleTimeString() : 'Não sincronizado'}</span>
+          <span style="font-size: 10px; opacity: 0.6;">${currentUser.lastSync ? new Date(currentUser.lastSync).toLocaleTimeString() : 'Not synced'}</span>
           <button id="syncBtn" class="btn btn-primary" style="padding: 8px 16px; font-size: 11px;"><i class="fas fa-sync-alt"></i> Sync</button>
-          <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Sair</button>
+          <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
       </div>
       
       <!-- RESERVE FUND CARDS -->
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px;">
         <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
-          <div class="balance-label">💎 RESERVA (BRD)</div>
+          <div class="balance-label">💎 RESERVE FUND (BRD)</div>
           <div class="balance-amount" style="font-size: 1.8rem;">${RESERVE_SUPPLY_BRD.toLocaleString()}</div>
-          <div style="font-size: 11px; margin-top: 8px;">100 Quadrilhões de BRD</div>
+          <div style="font-size: 11px; margin-top: 8px;">100 Quadrillion BRD</div>
           <div style="margin-top: 12px;">
             <button class="btn btn-reserve" onclick="document.getElementById('sendTo').value='${currentUser.walletAddress}'; document.getElementById('sendAmount').focus();" style="padding: 6px 12px; font-size: 11px;">
-              <i class="fas fa-arrow-right"></i> Enviar para minha wallet
+              <i class="fas fa-arrow-right"></i> Send to my wallet
             </button>
           </div>
         </div>
         <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
-          <div class="balance-label">💵 RESERVA (USD)</div>
+          <div class="balance-label">💵 RESERVE FUND (USD)</div>
           <div class="balance-amount" style="font-size: 1.8rem;">$${RESERVE_SUPPLY_USD.toLocaleString()}</div>
           <div style="font-size: 11px; margin-top: 8px;">1 BRD = $${BRD_TO_USD} USD</div>
         </div>
@@ -1136,11 +1225,11 @@
       
       <!-- SEARCH WALLET -->
       <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
-        <div class="card-header"><i class="fas fa-search"></i> Consultar Wallet <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain</span></div>
+        <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain</span></div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <input type="text" id="searchWalletAddress" class="input" placeholder="Endereço Bradicoin (Br...)" style="flex: 1;">
-          <button id="consultWalletBtn" class="btn btn-bradichain"><i class="fas fa-search"></i> Consultar</button>
-          <button id="openExplorerBtn" class="btn btn-outline"><i class="fas fa-external-link-alt"></i> Explorador</button>
+          <input type="text" id="searchWalletAddress" class="input" placeholder="Bradicoin address (Br...)" style="flex: 1;">
+          <button id="consultWalletBtn" class="btn btn-bradichain"><i class="fas fa-search"></i> Consult</button>
+          <button id="openExplorerBtn" class="btn btn-outline"><i class="fas fa-external-link-alt"></i> Explorer</button>
         </div>
         <div id="searchResult" class="result-box"></div>
         <div id="searchStatus" class="status-msg"></div>
@@ -1148,9 +1237,9 @@
       
       <!-- USER BALANCE -->
       <div class="glass-card user-balance-card" style="padding: 30px; text-align: center; margin-bottom: 24px;">
-        <div class="balance-label">💰 MEU SALDO</div>
-        <div class="balance-amount" style="font-size: 2rem;">${currentUser.balance.toLocaleString()} <span style="font-size: 1rem;">BRD</span></div>
-        <div class="balance-label" style="margin-top: 15px;">💵 MEU SALDO EM DÓLARES</div>
+        <div class="balance-label">💰 MY BALANCE</div>
+        <div class="balance-amount" style="font-size: 2rem;">${userBalance.toLocaleString()} <span style="font-size: 1rem;">BRD</span></div>
+        <div class="balance-label" style="margin-top: 15px;">💵 MY BALANCE IN USD</div>
         <div class="balance-amount" style="font-size: 2rem;">$${userBalanceUSD.toLocaleString()} <span style="font-size: 0.9rem;">USD</span></div>
         <div style="font-size: 12px; margin-top: 12px;">📊 1 BRD = $${BRD_TO_USD} USD</div>
         <div id="syncStatus" class="status-msg" style="margin-top: 12px;"></div>
@@ -1159,83 +1248,81 @@
       <div class="grid">
         <!-- WALLET CARD -->
         <div class="glass-card">
-          <div class="card-header"><i class="fas fa-wallet"></i> Minha Wallet</div>
+          <div class="card-header"><i class="fas fa-wallet"></i> My Wallet</div>
           <div class="wallet-box">
-            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">📌 ENDEREÇO</div>
+            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">📌 ADDRESS</div>
             <div style="font-family: monospace; font-size: 10px; word-break: break-all;">${currentUser.walletAddress}</div>
           </div>
           <div class="inline-buttons">
-            <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1;"><i class="fas fa-copy"></i> Copiar</button>
-            <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1;"><i class="fas fa-link"></i> Explorador</button>
+            <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1;"><i class="fas fa-copy"></i> Copy</button>
+            <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1;"><i class="fas fa-link"></i> Explorer</button>
           </div>
           <div class="wallet-box" style="margin-top: 16px;">
-            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 FRASE SEED</div>
+            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 SEED PHRASE</div>
             <div style="font-family: monospace; font-size: 9px; word-break: break-all;">${currentUser.seedPhrase}</div>
           </div>
           <div style="margin-top: 12px; font-size: 11px; color: ${currentUser.syncedWithAPI ? '#00ff88' : '#ffaa66'};">
-            ${currentUser.syncedWithAPI ? '✅ Sincronizado com API' : '⚠️ Dados locais apenas'}
+            ${currentUser.syncedWithAPI ? '✅ Synced with API' : '⚠️ Local data only'}
           </div>
         </div>
         
         <!-- STAKING CARD -->
         <div class="glass-card">
           <div class="card-header"><i class="fas fa-lock"></i> Staking Pools</div>
-          <div style="margin-bottom: 12px; font-size: 11px; color: #ffaa66;">⚡ APR de 130% em 2min!</div>
+          <div style="margin-bottom: 12px; font-size: 11px; color: #ffaa66;">⚡ 130% APR on 2min/30min!</div>
           ${stakeOptionsHtml}
           <div id="stakeStatus" class="status-msg"></div>
           <hr>
-          <div class="card-header" style="margin-top: 10px;"><i class="fas fa-chart-line"></i> Stake Ativo</div>
+          <div class="card-header" style="margin-top: 10px;"><i class="fas fa-chart-line"></i> Active Stake</div>
           ${stakeHtml}
-          <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake</button>
+          <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim</button>
         </div>
         
         <!-- SEND/RECEIVE CARD -->
         <div class="glass-card">
-          <div class="card-header"><i class="fas fa-exchange-alt"></i> Enviar / Receber</div>
+          <div class="card-header"><i class="fas fa-exchange-alt"></i> Send / Receive</div>
           
-          <!-- SEÇÃO DE ENVIO -->
+          <!-- SEND SECTION -->
           <div class="send-section">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-paper-plane" style="color: #ffd700;"></i>
-              <span style="color: #ffd700; font-weight: bold;">ENVIAR BRD</span>
+              <span style="color: #ffd700; font-weight: bold;">SEND BRD</span>
             </div>
             
-            <!-- Selecionar wallet da lista -->
             <div style="margin-bottom: 12px;">
-              <label style="font-size: 10px; color: #a855f7;">OU SELECIONE UMA WALLET DA LISTA:</label>
+              <label style="font-size: 10px; color: #a855f7;">OR SELECT FROM LIST:</label>
               <select id="walletSelect" class="wallet-select" onchange="document.getElementById('sendTo').value=this.value;">
-                <option value="">-- Selecione uma wallet --</option>
+                <option value="">-- Select a wallet --</option>
                 ${walletOptions}
-                <option value="${currentUser.walletAddress}">👤 Minha Wallet (${currentUser.walletAddress.substring(0, 16)}...)</option>
+                <option value="${currentUser.walletAddress}">👤 My Wallet (${currentUser.walletAddress.substring(0, 16)}...)</option>
               </select>
             </div>
             
-            <input type="text" id="sendTo" class="input" placeholder="📍 Endereço de destino (Br...)" style="margin-bottom: 12px;">
+            <input type="text" id="sendTo" class="input" placeholder="📍 Destination address (Br...)" style="margin-bottom: 12px;">
             
-            <!-- Quick amounts -->
             <div class="quick-amount">
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=100">100</button>
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=1000">1K</button>
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=10000">10K</button>
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=100000">100K</button>
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=1000000">1M</button>
-              <button class="btn btn-reserve" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=${(currentUser.balance * 0.5).toFixed(0)}">50%</button>
-              <button class="btn btn-reserve" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=${currentUser.balance}">100%</button>
+              <button class="btn btn-reserve" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=${(userBalance * 0.5).toFixed(0)}">50%</button>
+              <button class="btn btn-reserve" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('sendAmount').value=${userBalance}">100%</button>
             </div>
             
-            <input type="number" id="sendAmount" class="input" placeholder="💰 Quantidade (BRD)" style="margin-bottom: 12px;">
+            <input type="number" id="sendAmount" class="input" placeholder="💰 Amount (BRD)" style="margin-bottom: 12px;">
             
-            <button id="sendBtn" class="btn btn-primary" style="width: 100%;"><i class="fas fa-paper-plane"></i> Enviar BRD</button>
+            <button id="sendBtn" class="btn btn-primary" style="width: 100%;"><i class="fas fa-paper-plane"></i> Send BRD</button>
             <div id="sendStatus" class="status-msg"></div>
           </div>
           
           <hr>
           
-          <!-- SEÇÃO DE RECEBER -->
+          <!-- RECEIVE SECTION -->
           <div style="margin-top: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-download" style="color: #00ff88;"></i>
-              <span style="color: #00ff88; font-weight: bold;">RECEBER (SIMULAR)</span>
+              <span style="color: #00ff88; font-weight: bold;">RECEIVE (SIMULATE)</span>
             </div>
             
             <div class="quick-amount">
@@ -1245,18 +1332,18 @@
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('receiveAmount').value=100000">100K</button>
             </div>
             
-            <input type="number" id="receiveAmount" class="input" placeholder="💰 Quantidade (BRD)" style="margin-bottom: 12px;">
-            <button id="receiveBtn" class="btn btn-success" style="width: 100%;"><i class="fas fa-download"></i> Receber (Simular)</button>
+            <input type="number" id="receiveAmount" class="input" placeholder="💰 Amount (BRD)" style="margin-bottom: 12px;">
+            <button id="receiveBtn" class="btn btn-success" style="width: 100%;"><i class="fas fa-download"></i> Receive (Simulate)</button>
           </div>
         </div>
       </div>
       
       <!-- TRANSACTIONS -->
       <div class="glass-card" style="padding: 24px;">
-        <div class="card-header"><i class="fas fa-history"></i> Histórico de Transações</div>
+        <div class="card-header"><i class="fas fa-history"></i> Transaction History</div>
         <div class="history-container">
           <table class="history-table">
-            <thead><tr><th>Data</th><th>Tipo</th><th>Detalhes</th><th>Valor</th></tr></thead>
+            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
             <tbody>${historyHtml}</tbody>
           </table>
         </div>
@@ -1280,11 +1367,11 @@
       const to = document.getElementById('sendTo').value.trim();
       const amount = parseFloat(document.getElementById('sendAmount').value);
       if(!to) {
-        showStatus('📍 Digite o endereço de destino', 'sendStatus', 'error');
+        showStatus('📍 Enter destination address', 'sendStatus', 'error');
         return;
       }
       if(!amount || amount <= 0) {
-        showStatus('💰 Digite um valor válido', 'sendStatus', 'error');
+        showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
         return;
       }
       sendBRD(to, amount);
@@ -1292,7 +1379,7 @@
     document.getElementById('receiveBtn').onclick = function() {
       const amount = parseFloat(document.getElementById('receiveAmount').value);
       if(!amount || amount <= 0) {
-        showStatus('💰 Digite um valor válido', 'sendStatus', 'error');
+        showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
         return;
       }
       simulateReceive(amount);
@@ -1304,11 +1391,10 @@
       if(addr) {
         openBradichainExplorer(addr);
       } else {
-        showStatus('📌 Digite um endereço', 'searchStatus', 'error');
+        showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
       }
     };
     
-    // Atualiza o campo sendTo quando selecionar uma wallet
     document.getElementById('walletSelect')?.addEventListener('change', function() {
       document.getElementById('sendTo').value = this.value;
     });
@@ -1322,45 +1408,49 @@
         if(option && amount > 0) {
           doStake(amount, option);
         } else {
-          showStatus('💰 Digite um valor válido', 'stakeStatus', 'error');
+          showStatus('💰 Enter a valid amount', 'stakeStatus', 'error');
         }
       };
     });
   }
   
-  // ==================== RENDER PRINCIPAL ====================
+  // ============================================================
+  // MAIN RENDER
+  // ============================================================
   function render() {
-    console.log('🔄 Renderizando página...');
+    console.log('🔄 Rendering page...');
     loadUsers();
     const hasSession = loadSession();
     
-    console.log('📊 Usuários carregados:', users.length);
-    console.log('👤 Usuário atual:', currentUser ? currentUser.username : 'Nenhum');
+    console.log('📊 Users loaded:', users.length);
+    console.log('👤 Current user:', currentUser ? currentUser.username : 'None');
     
     if(currentUser) {
-      console.log('✅ Usuário logado, renderizando dashboard');
+      console.log('✅ User logged in, rendering dashboard');
       renderDashboard();
       setTimeout(function() {
         syncWalletWithBlockchain();
       }, 2000);
     } else {
-      console.log('❌ Nenhum usuário logado, renderizando login');
+      console.log('❌ No user logged in, rendering login');
       renderAuth();
     }
   }
   
-  // ==================== INICIALIZAÇÃO ====================
+  // ============================================================
+  // INITIALIZATION
+  // ============================================================
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', render);
   } else {
     render();
   }
   
-  console.log('🚀 Bradicoin Reserve Fund carregado!');
+  console.log('🚀 Bradicoin Reserve Fund loaded!');
   console.log('📡 API URL:', API_URL);
   console.log('🌐 Bradichain URL:', BRADICHAIN_URL);
   console.log('💲 1 BRD = $' + BRD_TO_USD + ' USD');
-  console.log('💎 Reserva: ' + RESERVE_SUPPLY_BRD.toLocaleString() + ' BRD');
+  console.log('💎 Reserve: ' + RESERVE_SUPPLY_BRD.toLocaleString() + ' BRD');
 
 </script>
 </body>
