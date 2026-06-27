@@ -86,6 +86,11 @@
     .btn-bradichain { background: linear-gradient(135deg, #ff6b35, #f7931a); border: none; box-shadow: 0 4px 15px rgba(247, 147, 26, 0.3); }
     .btn-danger { background: linear-gradient(135deg, #ff3333, #cc0000); border: none; }
     .btn-reserve { background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); color: #000; }
+    .btn-sm { padding: 8px 16px; font-size: 12px; }
+    .btn-test-api { background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 100, 255, 0.1)); border: 1px solid rgba(0, 200, 255, 0.4); color: #00ccff; }
+    .btn-test-api:hover { background: linear-gradient(135deg, #00ccff, #0088ff); border-color: transparent; color: #fff; }
+    .btn-delete-users { background: linear-gradient(135deg, rgba(255, 0, 50, 0.2), rgba(200, 0, 50, 0.1)); border: 1px solid rgba(255, 0, 50, 0.4); color: #ff3355; }
+    .btn-delete-users:hover { background: linear-gradient(135deg, #ff3355, #cc0022); border-color: transparent; color: #fff; }
     .input {
       background: rgba(1, 5, 24, 0.8);
       border: 1px solid rgba(168, 85, 247, 0.4);
@@ -236,44 +241,13 @@
     .quick-amount .btn { padding: 6px 12px; font-size: 11px; }
     .success-animation { animation: successFlash 0.5s ease; }
     @keyframes successFlash { 0%, 100% { background: rgba(0, 255, 136, 0.1); } 50% { background: rgba(0, 255, 136, 0.3); } }
-    .trash-icon {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      width: 60px;
-      height: 60px;
-      background: rgba(255, 0, 50, 0.15);
-      border: 2px solid rgba(255, 0, 50, 0.4);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      color: #ff3355;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      z-index: 1000;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(255, 0, 50, 0.2);
-    }
-    .trash-icon:hover {
-      background: rgba(255, 0, 50, 0.3);
-      transform: scale(1.1) rotate(-10deg);
-      box-shadow: 0 8px 30px rgba(255, 0, 50, 0.4);
-      border-color: #ff3355;
-    }
-    .trash-icon:active {
-      transform: scale(0.9);
-    }
+    .auth-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .auth-buttons .btn { width: 100%; justify-content: center; }
+    .divider { border: none; border-top: 1px solid rgba(168, 85, 247, 0.2); margin: 20px 0; }
   </style>
 </head>
 <body>
 <div class="container" id="app"></div>
-
-<!-- FLOATING TRASH ICON -->
-<div class="trash-icon" id="trashIcon" title="Delete All Users">
-  <i class="fas fa-trash-alt"></i>
-</div>
 
 <script>
   // ============================================================
@@ -518,7 +492,7 @@
   }
   
   // ============================================================
-  // LOGIN - FIXED
+  // LOGIN
   // ============================================================
   function loginUser(username, password) {
     console.log('🔐 Trying login:', username);
@@ -586,7 +560,7 @@
   }
   
   // ============================================================
-  // DELETE ALL USERS - TRASH ICON
+  // DELETE ALL USERS - PRESERVES STAKING GAINS
   // ============================================================
   function deleteAllUsers() {
     if (users.length === 0) {
@@ -594,8 +568,24 @@
       return;
     }
     
+    // Show warning about staking gains
+    let stakingInfo = '';
+    let hasStaking = false;
+    users.forEach(u => {
+      if (u.activeStake) {
+        hasStaking = true;
+        stakingInfo += `\n   - ${u.username}: ${formatNumber(u.activeStake.amount)} BRD staked (${u.activeStake.name})`;
+      }
+    });
+    
     const userList = users.map(u => `- ${u.username} (${u.walletAddress})`).join('\n');
-    const confirmMsg = `⚠️ WARNING: This will delete ALL ${users.length} users:\n\n${userList}\n\nAre you sure you want to continue?`;
+    let confirmMsg = `⚠️ WARNING: This will delete ALL ${users.length} users:\n\n${userList}`;
+    
+    if (hasStaking) {
+      confirmMsg += `\n\n🔒 ACTIVE STAKING DETECTED:${stakingInfo}\n\n⚠️ All staking gains will be LOST if you delete these accounts!\n\nAre you sure you want to continue?`;
+    } else {
+      confirmMsg += `\n\nAre you sure you want to continue?`;
+    }
     
     if (confirm(confirmMsg)) {
       // Clear all data
@@ -626,6 +616,18 @@
       render();
     } else {
       console.log('❌ Delete cancelled');
+    }
+  }
+  
+  // ============================================================
+  // TEST API CONNECTION
+  // ============================================================
+  async function testAPIConnection() {
+    const online = await checkAPIConnection();
+    if(online) {
+      alert('✅ Bradicoin API is ONLINE!\n\nStatus: Connected to ' + API_URL);
+    } else {
+      alert('⚠️ Bradicoin API is OFFLINE.\n\nUsing local data only.');
     }
   }
   
@@ -872,7 +874,7 @@
   }
   
   // ============================================================
-  // STAKING
+  // STAKING - PRESERVES GAINS
   // ============================================================
   const stakeOptions = [
     { name: "2 Minutes", seconds: 120, minStake: 1, apr: APR_2MIN, icon: "⚡" },
@@ -917,6 +919,7 @@
       return;
     }
     
+    // Process previous stake rewards if any
     if(currentUser.activeStake && currentUser.activeStake.endTime <= Date.now()) {
       const oldApr = currentUser.activeStake.apr;
       const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds, oldApr);
@@ -924,6 +927,7 @@
       addTransaction('STAKE_REWARD', `Reward from ${currentUser.activeStake.name} (${oldApr}% APR)`, reward);
     }
     
+    // Create new stake
     currentUser.activeStake = {
       amount: stakeAmount,
       seconds: option.seconds,
@@ -933,6 +937,7 @@
       startTime: Date.now()
     };
     
+    // Deduct from balance
     currentUser.balance = parseFloat(currentUser.balance) - stakeAmount;
     
     addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, stakeAmount);
@@ -1117,9 +1122,12 @@
             <p style="margin-top: 24px; font-size: 13px;">Already have an account? <a href="#" id="switchLogin" style="color: #00f2ff;">Sign In</a></p>
           `}
           
-          <hr style="margin: 30px 0 20px 0;">
-          <div style="display: flex; gap: 10px;">
-            <button id="checkAPI" class="btn btn-outline" style="flex: 1;"><i class="fas fa-plug"></i> Test API</button>
+          <hr class="divider">
+          
+          <!-- Test API & Delete Users Buttons -->
+          <div class="auth-buttons">
+            <button id="testApiBtn" class="btn btn-test-api btn-sm"><i class="fas fa-plug"></i> Test API Connection</button>
+            <button id="deleteUsersBtn" class="btn btn-delete-users btn-sm"><i class="fas fa-trash-alt"></i> Delete All Users</button>
           </div>
         </div>
       </div>
@@ -1179,14 +1187,11 @@
       };
     }
     
-    document.getElementById('checkAPI').onclick = async function() {
-      const online = await checkAPIConnection();
-      if(online) {
-        alert('✅ Bradicoin API is ONLINE!');
-      } else {
-        alert('⚠️ Bradicoin API is OFFLINE. Using local data.');
-      }
-    };
+    // Test API button
+    document.getElementById('testApiBtn').onclick = testAPIConnection;
+    
+    // Delete Users button
+    document.getElementById('deleteUsersBtn').onclick = deleteAllUsers;
   }
   
   // ============================================================
@@ -1515,15 +1520,11 @@
     render();
   }
   
-  // Trash icon click handler
-  document.getElementById('trashIcon')?.addEventListener('click', deleteAllUsers);
-  
   console.log('🚀 Bradicoin Reserve Fund loaded!');
   console.log('📡 API URL:', API_URL);
   console.log('🌐 Bradichain URL:', BRADICHAIN_URL);
   console.log('💲 1 BRD = $' + BRD_TO_USD + ' USD');
   console.log('💎 Reserve: ' + formatNumber(RESERVE_SUPPLY_BRD) + ' BRD');
-  console.log('🗑️ Click the trash icon to delete all users');
 
 </script>
 </body>
