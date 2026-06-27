@@ -236,10 +236,44 @@
     .quick-amount .btn { padding: 6px 12px; font-size: 11px; }
     .success-animation { animation: successFlash 0.5s ease; }
     @keyframes successFlash { 0%, 100% { background: rgba(0, 255, 136, 0.1); } 50% { background: rgba(0, 255, 136, 0.3); } }
+    .trash-icon {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 0, 50, 0.15);
+      border: 2px solid rgba(255, 0, 50, 0.4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #ff3355;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(255, 0, 50, 0.2);
+    }
+    .trash-icon:hover {
+      background: rgba(255, 0, 50, 0.3);
+      transform: scale(1.1) rotate(-10deg);
+      box-shadow: 0 8px 30px rgba(255, 0, 50, 0.4);
+      border-color: #ff3355;
+    }
+    .trash-icon:active {
+      transform: scale(0.9);
+    }
   </style>
 </head>
 <body>
 <div class="container" id="app"></div>
+
+<!-- FLOATING TRASH ICON -->
+<div class="trash-icon" id="trashIcon" title="Delete All Users">
+  <i class="fas fa-trash-alt"></i>
+</div>
 
 <script>
   // ============================================================
@@ -428,7 +462,7 @@
   }
   
   // ============================================================
-  // REGISTER & LOGIN - FIXED
+  // REGISTER & LOGIN
   // ============================================================
   async function registerUser(username, password) {
     console.log('📝 Registering user:', username);
@@ -484,12 +518,11 @@
   }
   
   // ============================================================
-  // LOGIN - COMPLETELY REWRITTEN
+  // LOGIN - FIXED
   // ============================================================
   function loginUser(username, password) {
     console.log('🔐 Trying login:', username);
     
-    // Find user
     const user = users.find(u => u.username === username && u.password === password);
     if (!user) {
       console.log('❌ User not found');
@@ -500,17 +533,14 @@
     
     console.log('✅ User found:', user.username);
     
-    // Ensure balance is a number
     user.balance = parseFloat(user.balance) || 100000000000000000;
     
-    // Set current user
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
     
     console.log('✅ Login successful! Redirecting to dashboard...');
     console.log('💰 Balance:', currentUser.balance);
     
-    // Load wallets and render dashboard
     listAllWallets().then(() => {
       renderDashboard();
     });
@@ -519,7 +549,7 @@
   }
   
   // ============================================================
-  // LOGOUT WITH CONFIRMATION
+  // LOGOUT
   // ============================================================
   function logout() {
     if (confirm('⚠️ Are you sure you want to logout?')) {
@@ -553,6 +583,50 @@
       console.error('❌ Session load error:', e);
     }
     return false;
+  }
+  
+  // ============================================================
+  // DELETE ALL USERS - TRASH ICON
+  // ============================================================
+  function deleteAllUsers() {
+    if (users.length === 0) {
+      alert('ℹ️ No users to delete.');
+      return;
+    }
+    
+    const userList = users.map(u => `- ${u.username} (${u.walletAddress})`).join('\n');
+    const confirmMsg = `⚠️ WARNING: This will delete ALL ${users.length} users:\n\n${userList}\n\nAre you sure you want to continue?`;
+    
+    if (confirm(confirmMsg)) {
+      // Clear all data
+      localStorage.removeItem('bradicoin_premium_data');
+      localStorage.removeItem('bradicoin_premium_session');
+      users = [];
+      currentUser = null;
+      
+      // Re-create default user
+      const defaultUser = {
+        id: Date.now(),
+        username: 'Bradi10',
+        password: '36124589Bdc',
+        walletAddress: 'Br' + 'bradi10' + Math.random().toString(36).substring(2, 35),
+        seedPhrase: generateSeedPhrase(),
+        balance: 100000000000000000,
+        activeStake: null,
+        transactions: [],
+        createdAt: new Date().toISOString(),
+        lastSync: null,
+        syncedWithAPI: false
+      };
+      users.push(defaultUser);
+      saveUsers();
+      
+      alert('✅ All users deleted. Default user "Bradi10" has been re-created.');
+      console.log('🗑️ All users deleted, default user re-created');
+      render();
+    } else {
+      console.log('❌ Delete cancelled');
+    }
   }
   
   // ============================================================
@@ -1046,7 +1120,6 @@
           <hr style="margin: 30px 0 20px 0;">
           <div style="display: flex; gap: 10px;">
             <button id="checkAPI" class="btn btn-outline" style="flex: 1;"><i class="fas fa-plug"></i> Test API</button>
-            <button id="clearDataBtn" class="btn btn-danger" style="flex: 1;"><i class="fas fa-trash-alt"></i> Reset All Data</button>
           </div>
         </div>
       </div>
@@ -1106,7 +1179,6 @@
       };
     }
     
-    document.getElementById('clearDataBtn').onclick = clearAllData;
     document.getElementById('checkAPI').onclick = async function() {
       const online = await checkAPIConnection();
       if(online) {
@@ -1117,18 +1189,9 @@
     };
   }
   
-  function clearAllData() {
-    if(confirm('⚠️ WARNING! This will delete ALL users and data. Continue?')) {
-      localStorage.removeItem('bradicoin_premium_data');
-      localStorage.removeItem('bradicoin_premium_session');
-      users = [];
-      currentUser = null;
-      loadUsers();
-      alert('✅ All data cleared! Default user created.');
-      render();
-    }
-  }
-  
+  // ============================================================
+  // DASHBOARD RENDER
+  // ============================================================
   function renderDashboard() {
     if(!currentUser) {
       renderAuth();
@@ -1437,7 +1500,6 @@
     if(currentUser) {
       console.log('✅ User logged in, rendering dashboard');
       console.log('💰 Balance:', currentUser.balance);
-      // Dashboard already rendered by loadSession
     } else {
       console.log('❌ No user logged in, rendering login');
       renderAuth();
@@ -1453,11 +1515,15 @@
     render();
   }
   
+  // Trash icon click handler
+  document.getElementById('trashIcon')?.addEventListener('click', deleteAllUsers);
+  
   console.log('🚀 Bradicoin Reserve Fund loaded!');
   console.log('📡 API URL:', API_URL);
   console.log('🌐 Bradichain URL:', BRADICHAIN_URL);
   console.log('💲 1 BRD = $' + BRD_TO_USD + ' USD');
   console.log('💎 Reserve: ' + formatNumber(RESERVE_SUPPLY_BRD) + ' BRD');
+  console.log('🗑️ Click the trash icon to delete all users');
 
 </script>
 </body>
