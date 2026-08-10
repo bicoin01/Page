@@ -244,6 +244,7 @@
     .auth-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
     .auth-buttons .btn { width: 100%; justify-content: center; }
     .divider { border: none; border-top: 1px solid rgba(168, 85, 247, 0.2); margin: 20px 0; }
+    .user-limit-msg { background: rgba(255, 200, 0, 0.15); border: 2px solid #ffcc00; border-radius: 16px; padding: 15px; margin-bottom: 16px; color: #ffcc00; text-align: center; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -258,6 +259,7 @@
   const BRD_TO_USD = 10;
   const RESERVE_SUPPLY_BRD = 100000000000000000;
   const RESERVE_SUPPLY_USD = RESERVE_SUPPLY_BRD * BRD_TO_USD;
+  const MAX_USERS = 2;
   
   const APR_2MIN = 130;
   const APR_30MIN = 130;
@@ -270,6 +272,8 @@
   let loginError = '';
   let regError = '';
   let allWallets = [];
+  let apiToken = null;
+  let isApiOnline = false;
   
   // ============================================================
   // HELPER: Format Large Numbers
@@ -355,8 +359,61 @@
   }
   
   // ============================================================
-  // API FUNCTIONS
+  // API FUNCTIONS - COM AUTENTICAÇÃO JWT
   // ============================================================
+  
+  async function loginToAPI(username, password) {
+    try {
+      console.log('🔑 Logging into API:', username);
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      console.log('📡 Login Response:', data);
+      
+      if (response.status === 401) {
+        console.log('⚠️ Usuário não registrado na API. Tentando registrar...');
+        // Tenta registrar o usuário na API
+        const registered = await registerUserOnAPI(username, password);
+        if (registered) {
+          console.log('✅ Usuário registrado na API! Tentando login novamente...');
+          // Tenta login novamente após registro
+          const retryResponse = await fetch(`${API_URL}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const retryData = await retryResponse.json();
+          console.log('📡 Login Retry Response:', retryData);
+          if (retryData.success && retryData.token) {
+            apiToken = retryData.token;
+            isApiOnline = true;
+            console.log('✅ Token JWT obtido com sucesso após registro!');
+            return retryData.token;
+          }
+        }
+        isApiOnline = false;
+        return null;
+      }
+      
+      if (data.success && data.token) {
+        apiToken = data.token;
+        isApiOnline = true;
+        console.log('✅ Token JWT obtido com sucesso!');
+        return data.token;
+      }
+      console.log('⚠️ Falha ao obter token JWT');
+      isApiOnline = false;
+      return null;
+    } catch (error) {
+      console.log('⚠️ Login API error:', error.message);
+      isApiOnline = false;
+      return null;
+    }
+  }
+
   async function syncBalanceWithAPI(address) {
     try {
       console.log('🔄 Syncing with API:', address);
@@ -365,34 +422,98 @@
       console.log('📡 API Response:', data);
       
       if (data && data.success && data.data) {
+        isApiOnline = true;
         return parseFloat(data.data.balance) || 0;
       }
+      isApiOnline = false;
       return null;
     } catch (error) {
       console.log('⚠️ API Error:', error.message);
+      isApiOnline = false;
       return null;
     }
   }
 
   async function sendBRDToAPI(fromAddress, toAddress, amount) {
     try {
-      console.log('💸 Sending transaction:', { fromAddress, toAddress, amount });
+      if (!apiToken && currentUser) {
+        console.log('🔑 Obtendo token JWT para envio...');
+        const token = await loginToAPI(currentUser.username, currentUser.password);
+        if (!token) {
+          console.log('⚠️ Não foi possível obter token JWT');
+          isApiOnline = false;
+          return null;
+        }
+      }
+
+      if (!apiToken) {
+        console.log('⚠️ Sem token JWT disponível');
+        isApiOnline = false;
+        return null;
+      }
+
+      console.log('💸 Sending transaction with JWT:', { fromAddress, toAddress, amount });
       const response = await fetch(`${API_URL}/api/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromAddress, toAddress, amount: parseFloat(amount) })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiToken}`
+        },
+        body: JSON.stringify({ 
+          fromAddress, 
+          toAddress, 
+          amount: parseFloat(amount) 
+        })
       });
       const data = await response.json();
       console.log('📡 Send Response:', data);
-      return data.success ? data.data : null;
+      
+      if (response.status === 401) {
+        console.log('⚠️ Token expirado ou inválido. Tentando renovar...');
+        const newToken = await loginToAPI(currentUser.username, currentUser.password);
+        if (newToken) {
+          // Tenta novamente com o novo token
+          const retryResponse = await fetch(`${API_URL}/api/send`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${newToken}`
+            },
+            body: JSON.stringify({ 
+              fromAddress, 
+              toAddress, 
+              amount: parseFloat(amount) 
+            })
+          });
+          const retryData = await retryResponse.json();
+          console.log('📡 Send Retry Response:', retryData);
+          if (retryData.success) {
+            isApiOnline = true;
+            return retryData.data || { newBalance: parseFloat(currentUser.balance) - parseFloat(amount) };
+          }
+        }
+        isApiOnline = false;
+        return null;
+      }
+      
+      if (data.success) {
+        isApiOnline = true;
+        return data.data || { newBalance: parseFloat(currentUser.balance) - parseFloat(amount) };
+      } else {
+        console.log('⚠️ Erro no envio:', data.message);
+        isApiOnline = false;
+        return null;
+      }
     } catch (error) {
       console.log('⚠️ Send Error:', error.message);
+      isApiOnline = false;
       return null;
     }
   }
 
   async function registerUserOnAPI(username, password) {
     try {
+      console.log('📝 Registrando usuário na API:', username);
       const response = await fetch(`${API_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -400,9 +521,15 @@
       });
       const data = await response.json();
       console.log('📡 Register Response:', data);
-      return data.success;
+      if (data.success) {
+        isApiOnline = true;
+        return true;
+      }
+      isApiOnline = false;
+      return false;
     } catch (error) {
       console.log('⚠️ Register Error:', error.message);
+      isApiOnline = false;
       return false;
     }
   }
@@ -413,12 +540,15 @@
       const data = await response.json();
       if (data && data.success && data.data) {
         allWallets = data.data.users || [];
+        isApiOnline = true;
         console.log('📊 Wallets loaded:', allWallets.length);
         return allWallets;
       }
+      isApiOnline = false;
       return [];
     } catch (error) {
       console.log('⚠️ List wallets error:', error.message);
+      isApiOnline = false;
       return [];
     }
   }
@@ -428,9 +558,11 @@
       const response = await fetch(`${API_URL}/health`);
       const data = await response.json();
       console.log('📡 API Status:', data);
-      return data.status === 'ok';
+      isApiOnline = data.status === 'ok';
+      return isApiOnline;
     } catch (error) {
       console.log('⚠️ API Offline:', error.message);
+      isApiOnline = false;
       return false;
     }
   }
@@ -441,8 +573,8 @@
   async function registerUser(username, password) {
     console.log('📝 Registering user:', username);
     
-    if (users.length >= 3) {
-      return { success: false, message: '⚠️ Maximum 3 users allowed' };
+    if (users.length >= MAX_USERS) {
+      return { success: false, message: '⚠️ Número de usuário limitado para dois' };
     }
     
     if (users.find(u => u.username === username)) {
@@ -477,8 +609,14 @@
     console.log('✅ User created locally:', newUser.walletAddress);
     
     try {
-      await registerUserOnAPI(username, password);
-      console.log('✅ User registered on API');
+      const registered = await registerUserOnAPI(username, password);
+      if (registered) {
+        console.log('✅ User registered on API');
+        // Tenta fazer login na API para obter token
+        await loginToAPI(username, password);
+      } else {
+        console.log('⚠️ Could not register on API');
+      }
     } catch (error) {
       console.log('⚠️ Could not register on API:', error.message);
     }
@@ -512,10 +650,21 @@
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
     
+    // Tenta fazer login na API para obter token
+    loginToAPI(username, password).then(token => {
+      if (token) {
+        console.log('✅ Login na API realizado com sucesso');
+      } else {
+        console.log('⚠️ Modo offline - sem token JWT');
+      }
+      renderDashboard();
+    });
+    
     console.log('✅ Login successful! Redirecting to dashboard...');
     console.log('💰 Balance:', currentUser.balance);
     
-    listAllWallets().then(() => {
+    // Carrega as carteiras e verifica status da API
+    Promise.all([listAllWallets(), checkAPIConnection()]).then(() => {
       renderDashboard();
     });
     
@@ -528,6 +677,8 @@
   function logout() {
     if (confirm('⚠️ Are you sure you want to logout?')) {
       currentUser = null;
+      apiToken = null;
+      isApiOnline = false;
       localStorage.removeItem('bradicoin_premium_session');
       console.log('🚪 Logout done');
       render();
@@ -547,9 +698,17 @@
           currentUser = user;
           console.log('🔑 Session loaded:', currentUser.username);
           console.log('💰 Balance:', currentUser.balance);
-          listAllWallets().then(() => {
-            renderDashboard();
+          
+          // Tenta obter token JWT e verifica status da API
+          Promise.all([
+            loginToAPI(currentUser.username, currentUser.password),
+            checkAPIConnection()
+          ]).then(() => {
+            listAllWallets().then(() => {
+              renderDashboard();
+            });
           });
+          
           return true;
         }
       }
@@ -560,7 +719,7 @@
   }
   
   // ============================================================
-  // DELETE ALL USERS - PRESERVES STAKING GAINS
+  // DELETE ALL USERS
   // ============================================================
   function deleteAllUsers() {
     if (users.length === 0) {
@@ -568,7 +727,6 @@
       return;
     }
     
-    // Show warning about staking gains
     let stakingInfo = '';
     let hasStaking = false;
     users.forEach(u => {
@@ -588,13 +746,13 @@
     }
     
     if (confirm(confirmMsg)) {
-      // Clear all data
       localStorage.removeItem('bradicoin_premium_data');
       localStorage.removeItem('bradicoin_premium_session');
       users = [];
       currentUser = null;
+      apiToken = null;
+      isApiOnline = false;
       
-      // Re-create default user
       const defaultUser = {
         id: Date.now(),
         username: 'Bradi10',
@@ -629,6 +787,7 @@
     } else {
       alert('⚠️ Bradicoin API is OFFLINE.\n\nUsing local data only.');
     }
+    if (currentUser) renderDashboard();
   }
   
   // ============================================================
@@ -665,7 +824,7 @@
   }
   
   // ============================================================
-  // SEND BRD
+  // SEND BRD - CORRIGIDO COM JWT E FALLBACK OFFLINE
   // ============================================================
   async function sendBRD(toAddress, amount) {
     if (!currentUser) {
@@ -710,6 +869,8 @@
       if (result) {
         const newBalance = result.newBalance !== undefined ? parseFloat(result.newBalance) : (userBalance - sendAmount);
         currentUser.balance = newBalance;
+        currentUser.syncedWithAPI = true;
+        currentUser.lastSync = new Date().toISOString();
         
         if (stakeSnapshot && !currentUser.activeStake) {
           currentUser.activeStake = {
@@ -726,13 +887,14 @@
         addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, sendAmount, toAddress);
         saveCurrentUser();
         renderDashboard();
-        showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully!`, 'sendStatus', 'success');
+        showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully! (Online)`, 'sendStatus', 'success');
       } else {
+        console.log('⚠️ API falhou, usando modo offline');
         currentUser.balance = userBalance - sendAmount;
         
         if (stakeSnapshot && !currentUser.activeStake) {
           currentUser.activeStake = stakeSnapshot;
-          console.log('🔒 Stake restored after failure');
+          console.log('🔒 Stake restored after API failure');
         }
         
         addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, sendAmount, toAddress);
@@ -741,12 +903,19 @@
         showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
       }
     } catch (error) {
+      console.error('❌ Send error:', error);
+      currentUser.balance = userBalance - sendAmount;
+      
       if (stakeSnapshot && !currentUser.activeStake) {
         currentUser.activeStake = stakeSnapshot;
         saveCurrentUser();
         console.log('🔒 Stake restored after error');
       }
-      showStatus(`❌ Error: ${error.message}`, 'sendStatus', 'error');
+      
+      addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, sendAmount, toAddress);
+      saveCurrentUser();
+      renderDashboard();
+      showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
     }
   }
   
@@ -781,8 +950,10 @@
         found = data.data.exists || false;
         username = data.data.username || 'Unknown';
         apiConnected = true;
+        isApiOnline = true;
       } else {
         apiConnected = false;
+        isApiOnline = false;
         const localUser = users.find(u => u.walletAddress === address);
         if (localUser) {
           balance = parseFloat(localUser.balance) || 0;
@@ -827,15 +998,40 @@
       
     } catch (error) {
       console.error('❌ Consult error:', error);
-      resultDiv.innerHTML = `
-        <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
-          <div style="font-size: 48px;">❌</div>
-          <h3 style="color: #ff6464;">Connection Error</h3>
-          <p>Could not connect to Bradicoin API.</p>
-          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">🌐 Open Bradichain Explorer</button>
-        </div>
-      `;
-      showStatus(`❌ API connection error`, 'searchStatus', 'error');
+      isApiOnline = false;
+      const localUser = users.find(u => u.walletAddress === address);
+      if (localUser) {
+        const balance = parseFloat(localUser.balance) || 0;
+        const balanceInUSD = balance * BRD_TO_USD;
+        resultDiv.innerHTML = `
+          <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+              <div>
+                <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET FOUND</span>
+                <span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>
+              </div>
+              <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+                <i class="fas fa-external-link-alt"></i> View on Explorer
+              </button>
+            </div>
+            <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${localUser.username}</span></div>
+            <div class="metric-row"><span class="metric-label">📍 Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+            <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
+            <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
+          </div>
+        `;
+        showStatus(`✅ Local wallet found`, 'searchStatus', 'success');
+      } else {
+        resultDiv.innerHTML = `
+          <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
+            <div style="font-size: 48px;">❌</div>
+            <h3 style="color: #ff6464;">Connection Error</h3>
+            <p>Could not connect to Bradicoin API. Wallet not found locally.</p>
+            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">🌐 Open Bradichain Explorer</button>
+          </div>
+        `;
+        showStatus(`❌ Wallet not found`, 'searchStatus', 'error');
+      }
     }
   }
   
@@ -874,7 +1070,7 @@
   }
   
   // ============================================================
-  // STAKING - PRESERVES GAINS
+  // STAKING
   // ============================================================
   const stakeOptions = [
     { name: "2 Minutes", seconds: 120, minStake: 1, apr: APR_2MIN, icon: "⚡" },
@@ -919,7 +1115,6 @@
       return;
     }
     
-    // Process previous stake rewards if any
     if(currentUser.activeStake && currentUser.activeStake.endTime <= Date.now()) {
       const oldApr = currentUser.activeStake.apr;
       const reward = calcReward(currentUser.activeStake.amount, currentUser.activeStake.seconds, oldApr);
@@ -927,7 +1122,6 @@
       addTransaction('STAKE_REWARD', `Reward from ${currentUser.activeStake.name} (${oldApr}% APR)`, reward);
     }
     
-    // Create new stake
     currentUser.activeStake = {
       amount: stakeAmount,
       seconds: option.seconds,
@@ -937,7 +1131,6 @@
       startTime: Date.now()
     };
     
-    // Deduct from balance
     currentUser.balance = parseFloat(currentUser.balance) - stakeAmount;
     
     addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, stakeAmount);
@@ -1067,6 +1260,7 @@
         if (apiBalance > currentBalance) {
           currentUser.balance = apiBalance;
           currentUser.lastSync = new Date().toISOString();
+          currentUser.syncedWithAPI = true;
           saveCurrentUser();
           renderDashboard();
           showStatus(`✅ Synced! Balance: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
@@ -1075,14 +1269,18 @@
         } else {
           showStatus(`✅ Balance is up to date: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
         }
+        isApiOnline = true;
       } else {
         showStatus('⚠️ API offline. Using local data.', 'syncStatus', 'error');
+        isApiOnline = false;
       }
       
       await listAllWallets();
+      renderDashboard();
       
     } catch (error) {
       showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
+      isApiOnline = false;
     }
   }
   
@@ -1090,6 +1288,8 @@
   // RENDER FUNCTIONS
   // ============================================================
   function renderAuth() {
+    const isLimitReached = users.length >= MAX_USERS;
+    
     const html = `
       <div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
         <div class="glass-card" style="max-width: 520px; width: 100%; padding: 40px; text-align: center;">
@@ -1105,7 +1305,13 @@
             <p style="color: #66ff66; font-size: 11px; margin-top: 8px;">📊 1 BRD = $${BRD_TO_USD} USD</p>
           </div>
           
-          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/3 registered</p>
+          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/${MAX_USERS} registered</p>
+          
+          ${isLimitReached && showLogin ? `
+            <div class="user-limit-msg">
+              ⚠️ Número de usuário limitado para dois
+            </div>
+          ` : ''}
           
           ${showLogin ? `
             <input type="text" id="loginUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
@@ -1114,17 +1320,22 @@
             <button id="doLogin" class="btn btn-primary" style="width: 100%;">🔐 Sign In</button>
             <p style="margin-top: 24px; font-size: 13px;">No account? <a href="#" id="switchReg" style="color: #00f2ff;">Create Account</a></p>
           ` : `
-            <input type="text" id="regUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
-            <input type="password" id="regPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
-            <input type="password" id="regConfirm" class="input" placeholder="Confirm Password" style="margin-bottom: 16px;">
-            <div id="regMsg" class="status-msg status-error" style="margin-bottom: 16px;">${regError}</div>
-            <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
+            ${isLimitReached ? `
+              <div class="user-limit-msg">
+                ⚠️ Número de usuário limitado para dois - Cannot create new accounts
+              </div>
+            ` : `
+              <input type="text" id="regUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
+              <input type="password" id="regPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
+              <input type="password" id="regConfirm" class="input" placeholder="Confirm Password" style="margin-bottom: 16px;">
+              <div id="regMsg" class="status-msg status-error" style="margin-bottom: 16px;">${regError}</div>
+              <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
+            `}
             <p style="margin-top: 24px; font-size: 13px;">Already have an account? <a href="#" id="switchLogin" style="color: #00f2ff;">Sign In</a></p>
           `}
           
           <hr class="divider">
           
-          <!-- Test API & Delete Users Buttons -->
           <div class="auth-buttons">
             <button id="testApiBtn" class="btn btn-test-api btn-sm"><i class="fas fa-plug"></i> Test API Connection</button>
             <button id="deleteUsersBtn" class="btn btn-delete-users btn-sm"><i class="fas fa-trash-alt"></i> Delete All Users</button>
@@ -1135,63 +1346,75 @@
     document.getElementById('app').innerHTML = html;
     
     if(showLogin) {
-      document.getElementById('doLogin').onclick = function() {
-        const username = document.getElementById('loginUser').value;
-        const password = document.getElementById('loginPass').value;
-        
-        if(!username || !password) {
-          loginError = '❌ Enter username and password';
-          renderAuth();
-          return;
-        }
-        
-        const result = loginUser(username, password);
-        if(result.success) {
-          // Login successful - dashboard already rendered
-        } else {
-          loginError = result.message;
-          renderAuth();
-        }
-      };
-      document.getElementById('switchReg').onclick = function(e) { 
-        e.preventDefault(); 
-        showLogin = false; 
-        regError = ''; 
-        renderAuth(); 
-      };
+      const loginBtn = document.getElementById('doLogin');
+      if(loginBtn) {
+        loginBtn.onclick = function() {
+          const username = document.getElementById('loginUser').value;
+          const password = document.getElementById('loginPass').value;
+          
+          if(!username || !password) {
+            loginError = '❌ Enter username and password';
+            renderAuth();
+            return;
+          }
+          
+          const result = loginUser(username, password);
+          if(result.success) {
+            // Login successful - dashboard already rendered
+          } else {
+            loginError = result.message;
+            renderAuth();
+          }
+        };
+      }
+      const switchReg = document.getElementById('switchReg');
+      if(switchReg) {
+        switchReg.onclick = function(e) { 
+          e.preventDefault(); 
+          showLogin = false; 
+          regError = ''; 
+          renderAuth(); 
+        };
+      }
     } else {
-      document.getElementById('doReg').onclick = async function() {
-        const user = document.getElementById('regUser').value;
-        const pass = document.getElementById('regPass').value;
-        const confirm = document.getElementById('regConfirm').value;
-        if(pass !== confirm) { 
-          regError = "⚠️ Passwords don't match!"; 
-          renderAuth(); 
-          return; 
-        }
-        const result = await registerUser(user, pass);
-        if(result.success) { 
+      const regBtn = document.getElementById('doReg');
+      if(regBtn) {
+        regBtn.onclick = async function() {
+          const user = document.getElementById('regUser').value;
+          const pass = document.getElementById('regPass').value;
+          const confirm = document.getElementById('regConfirm').value;
+          if(pass !== confirm) { 
+            regError = "⚠️ Passwords don't match!"; 
+            renderAuth(); 
+            return; 
+          }
+          const result = await registerUser(user, pass);
+          if(result.success) { 
+            showLogin = true; 
+            loginError = `✅ Account created! Balance: ${formatNumber(result.balance)} BRD`; 
+            renderAuth(); 
+          } else { 
+            regError = result.message; 
+            renderAuth(); 
+          }
+        };
+      }
+      const switchLogin = document.getElementById('switchLogin');
+      if(switchLogin) {
+        switchLogin.onclick = function(e) { 
+          e.preventDefault(); 
           showLogin = true; 
-          loginError = `✅ Account created! Balance: ${formatNumber(result.balance)} BRD`; 
+          loginError = ''; 
           renderAuth(); 
-        } else { 
-          regError = result.message; 
-          renderAuth(); 
-        }
-      };
-      document.getElementById('switchLogin').onclick = function(e) { 
-        e.preventDefault(); 
-        showLogin = true; 
-        loginError = ''; 
-        renderAuth(); 
-      };
+        };
+      }
     }
     
-    // Test API button
-    document.getElementById('testApiBtn').onclick = testAPIConnection;
+    const testBtn = document.getElementById('testApiBtn');
+    if(testBtn) testBtn.onclick = testAPIConnection;
     
-    // Delete Users button
-    document.getElementById('deleteUsersBtn').onclick = deleteAllUsers;
+    const deleteBtn = document.getElementById('deleteUsersBtn');
+    if(deleteBtn) deleteBtn.onclick = deleteAllUsers;
   }
   
   // ============================================================
@@ -1203,7 +1426,6 @@
       return;
     }
     
-    // Ensure balance is a number
     currentUser.balance = parseFloat(currentUser.balance) || 100000000000000000;
     
     const progress = getStakeProgress();
@@ -1217,6 +1439,10 @@
     
     const userBalance = parseFloat(currentUser.balance);
     const userBalanceUSD = userBalance * BRD_TO_USD;
+    
+    const statusClass = isApiOnline ? 'online' : 'offline';
+    const statusText = isApiOnline ? '🟢 Online' : '🔴 Offline';
+    const statusColor = isApiOnline ? '#00ff88' : '#ff6666';
     
     let stakeHtml = `<div style="text-align: center; padding: 30px; color: #888;">💎 No active stake</div>`;
     if(activeStake) {
@@ -1272,16 +1498,15 @@
         </div>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
-          <span class="network-status ${currentUser.lastSync ? 'online' : 'offline'}">
-            ${currentUser.lastSync ? '🟢 Online' : '🔴 Offline'}
+          <span class="network-status ${statusClass}" style="color: ${statusColor};">
+            ${statusText}
           </span>
-          <span style="font-size: 10px; opacity: 0.6;">${currentUser.lastSync ? new Date(currentUser.lastSync).toLocaleTimeString() : 'Not synced'}</span>
+          ${isApiOnline ? `<span style="font-size: 10px; color: #00ff88;">✅ API Connected</span>` : `<span style="font-size: 10px; color: #ff6666;">⚠️ API Offline</span>`}
           <button id="syncBtn" class="btn btn-primary" style="padding: 8px 16px; font-size: 11px;"><i class="fas fa-sync-alt"></i> Sync</button>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
       </div>
       
-      <!-- RESERVE FUND CARDS -->
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px;">
         <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
           <div class="balance-label">💎 RESERVE FUND (BRD)</div>
@@ -1300,7 +1525,6 @@
         </div>
       </div>
       
-      <!-- SEARCH WALLET -->
       <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
         <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain</span></div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -1312,7 +1536,6 @@
         <div id="searchStatus" class="status-msg"></div>
       </div>
       
-      <!-- USER BALANCE -->
       <div class="glass-card user-balance-card" style="padding: 30px; text-align: center; margin-bottom: 24px;">
         <div class="balance-label">💰 MY BALANCE</div>
         <div class="balance-amount" style="font-size: 2rem;">${formatNumber(userBalance)} <span style="font-size: 1rem;">BRD</span></div>
@@ -1323,7 +1546,6 @@
       </div>
       
       <div class="grid">
-        <!-- WALLET CARD -->
         <div class="glass-card">
           <div class="card-header"><i class="fas fa-wallet"></i> My Wallet</div>
           <div class="wallet-box">
@@ -1343,7 +1565,6 @@
           </div>
         </div>
         
-        <!-- STAKING CARD -->
         <div class="glass-card">
           <div class="card-header"><i class="fas fa-lock"></i> Staking Pools</div>
           <div style="margin-bottom: 12px; font-size: 11px; color: #ffaa66;">⚡ 130% APR on 2min/30min!</div>
@@ -1355,15 +1576,14 @@
           <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim</button>
         </div>
         
-        <!-- SEND/RECEIVE CARD -->
         <div class="glass-card">
           <div class="card-header"><i class="fas fa-exchange-alt"></i> Send / Receive</div>
           
-          <!-- SEND SECTION -->
           <div class="send-section">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-paper-plane" style="color: #ffd700;"></i>
               <span style="color: #ffd700; font-weight: bold;">SEND BRD</span>
+              ${isApiOnline ? '<span style="font-size: 10px; color: #00ff88; margin-left: auto;">🟢 Online</span>' : '<span style="font-size: 10px; color: #ff6666; margin-left: auto;">🔴 Offline</span>'}
             </div>
             
             <div style="margin-bottom: 12px;">
@@ -1395,7 +1615,6 @@
           
           <hr>
           
-          <!-- RECEIVE SECTION -->
           <div style="margin-top: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-download" style="color: #00ff88;"></i>
@@ -1415,7 +1634,6 @@
         </div>
       </div>
       
-      <!-- TRANSACTIONS -->
       <div class="glass-card" style="padding: 24px;">
         <div class="card-header"><i class="fas fa-history"></i> Transaction History</div>
         <div class="history-container">
@@ -1433,7 +1651,6 @@
     
     document.getElementById('app').innerHTML = html;
     
-    // Event listeners
     document.getElementById('logoutBtn').onclick = logout;
     document.getElementById('syncBtn').onclick = syncWalletWithBlockchain;
     document.getElementById('copyAddressBtn').onclick = function() {
@@ -1525,6 +1742,7 @@
   console.log('🌐 Bradichain URL:', BRADICHAIN_URL);
   console.log('💲 1 BRD = $' + BRD_TO_USD + ' USD');
   console.log('💎 Reserve: ' + formatNumber(RESERVE_SUPPLY_BRD) + ' BRD');
+  console.log('👥 Max users: ' + MAX_USERS);
 
 </script>
 </body>
