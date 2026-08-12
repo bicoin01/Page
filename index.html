@@ -414,158 +414,178 @@
     }
   }
 
-  async function syncBalanceWithAPI(address) {
-    try {
-      console.log('🔄 Syncing with API:', address);
-      const response = await fetch(`${API_URL}/api/balance/${address}`);
-      const data = await response.json();
-      console.log('📡 API Response:', data);
-      
-      if (data && data.success && data.data) {
-        isApiOnline = true;
-        return parseFloat(data.data.balance) || 0;
-      }
-      isApiOnline = false;
-      return null;
-    } catch (error) {
-      console.log('⚠️ API Error:', error.message);
-      isApiOnline = false;
-      return null;
-    }
-  }
-
-  async function sendBRDToAPI(fromAddress, toAddress, amount) {
-    try {
-      if (!apiToken && currentUser) {
-        console.log('🔑 Obtendo token JWT para envio...');
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          console.log('⚠️ Não foi possível obter token JWT');
-          isApiOnline = false;
-          return null;
+    async function syncBalanceWithAPI(address) {
+      try {
+        console.log('🔄 Syncing with API:', address);
+        
+        // Primeiro, tenta obter token JWT se não tiver
+        if (!apiToken && currentUser) {
+            console.log('🔑 Obtendo token JWT para consulta...');
+            const token = await loginToAPI(currentUser.username, currentUser.password);
+            if (!token) {
+                console.log('⚠️ Não foi possível obter token JWT');
+                isApiOnline = false;
+                return null;
+            }
         }
-      }
 
-      if (!apiToken) {
-        console.log('⚠️ Sem token JWT disponível');
-        isApiOnline = false;
-        return null;
-      }
-
-      console.log('💸 Sending transaction with JWT:', { fromAddress, toAddress, amount });
-      const response = await fetch(`${API_URL}/api/send`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-        body: JSON.stringify({ 
-          fromAddress, 
-          toAddress, 
-          amount: parseFloat(amount) 
-        })
-      });
-      const data = await response.json();
-      console.log('📡 Send Response:', data);
-      
-      if (response.status === 401) {
-        console.log('⚠️ Token expirado ou inválido. Tentando renovar...');
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          // Tenta novamente com o novo token
-          const retryResponse = await fetch(`${API_URL}/api/send`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`
-            },
-            body: JSON.stringify({ 
-              fromAddress, 
-              toAddress, 
-              amount: parseFloat(amount) 
-            })
-          });
-          const retryData = await retryResponse.json();
-          console.log('📡 Send Retry Response:', retryData);
-          if (retryData.success) {
+        // Faz a consulta com autenticação
+        const response = await fetch(`${API_URL}/api/balance/${address}`, {
+            headers: {
+                'Authorization': `Bearer ${apiToken}`
+            }
+        });
+        
+        const data = await response.json();
+        console.log('📡 API Response:', data);
+        
+        if (data && data.success && data.data) {
             isApiOnline = true;
-            return retryData.data || { newBalance: parseFloat(currentUser.balance) - parseFloat(amount) };
-          }
+            return parseFloat(data.data.balance) || 0;
         }
+        
+        // Se deu erro 401, tenta renovar o token
+        if (response.status === 401) {
+            console.log('⚠️ Token expirado, renovando...');
+            const newToken = await loginToAPI(currentUser.username, currentUser.password);
+            if (newToken) {
+                // Tenta novamente com o novo token
+                const retryResponse = await fetch(`${API_URL}/api/balance/${address}`, {
+                    headers: {
+                        'Authorization': `Bearer ${newToken}`
+                    }
+                });
+                const retryData = await retryResponse.json();
+                if (retryData && retryData.success && retryData.data) {
+                    isApiOnline = true;
+                    return parseFloat(retryData.data.balance) || 0;
+                }
+            }
+        }
+        
         isApiOnline = false;
         return null;
-      }
-      
-      if (data.success) {
-        isApiOnline = true;
-        return data.data || { newBalance: parseFloat(currentUser.balance) - parseFloat(amount) };
-      } else {
-        console.log('⚠️ Erro no envio:', data.message);
+    } catch (error) {
+        console.log('⚠️ API Error:', error.message);
         isApiOnline = false;
         return null;
-      }
-    } catch (error) {
-      console.log('⚠️ Send Error:', error.message);
-      isApiOnline = false;
-      return null;
     }
-  }
+}
 
-  async function registerUserOnAPI(username, password) {
-    try {
-      console.log('📝 Registrando usuário na API:', username);
-      const response = await fetch(`${API_URL}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      console.log('📡 Register Response:', data);
-      if (data.success) {
-        isApiOnline = true;
-        return true;
-      }
-      isApiOnline = false;
-      return false;
-    } catch (error) {
-      console.log('⚠️ Register Error:', error.message);
-      isApiOnline = false;
-      return false;
+async function sendBRD(toAddress, amount) {
+    if (!currentUser) {
+        showStatus('❌ No user logged in', 'sendStatus', 'error');
+        return;
     }
-  }
+    
+    if (!toAddress || toAddress.trim() === '') {
+        showStatus('📍 Enter destination address', 'sendStatus', 'error');
+        return;
+    }
+    
+    if (!toAddress.startsWith('Br')) {
+        showStatus('⚠️ Invalid address. Must start with "Br"', 'sendStatus', 'error');
+        return;
+    }
+    
+    const sendAmount = parseFloat(amount);
+    if (isNaN(sendAmount) || sendAmount <= 0) {
+        showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
+        return;
+    }
+    
+    const userBalance = parseFloat(currentUser.balance);
+    console.log('💰 Balance check:', { userBalance, sendAmount });
+    
+    if (sendAmount > userBalance) {
+        showStatus(`⚠️ Insufficient balance. You have ${formatNumber(userBalance)} BRD`, 'sendStatus', 'error');
+        return;
+    }
 
-  async function listAllWallets() {
-    try {
-      const response = await fetch(`${API_URL}/api/users`);
-      const data = await response.json();
-      if (data && data.success && data.data) {
-        allWallets = data.data.users || [];
-        isApiOnline = true;
-        console.log('📊 Wallets loaded:', allWallets.length);
-        return allWallets;
-      }
-      isApiOnline = false;
-      return [];
-    } catch (error) {
-      console.log('⚠️ List wallets error:', error.message);
-      isApiOnline = false;
-      return [];
+    // Primeiro, verifica se o endereço de destino existe na blockchain
+    showStatus('🔍 Verificando endereço de destino...', 'sendStatus', 'info');
+    const destCheck = await verificarEnderecoBlockchain(toAddress);
+    
+    if (!destCheck.online) {
+        showStatus('⚠️ API offline. Enviando em modo offline...', 'sendStatus', 'warning');
+    } else if (!destCheck.exists && sendAmount > 1000) {
+        // Avisa se o endereço não existe e o valor é alto
+        if (!confirm(`⚠️ O endereço ${toAddress.substring(0, 16)}... não foi encontrado na blockchain. Deseja continuar mesmo assim?`)) {
+            showStatus('❌ Envio cancelado', 'sendStatus', 'error');
+            return;
+        }
     }
-  }
 
-  async function checkAPIConnection() {
+    const stakeSnapshot = currentUser.activeStake ? { 
+        ...currentUser.activeStake,
+        _snapshotTime: Date.now()
+    } : null;
+
+    showStatus('⏳ Sending transaction to blockchain...', 'sendStatus', 'info');
+
     try {
-      const response = await fetch(`${API_URL}/health`);
-      const data = await response.json();
-      console.log('📡 API Status:', data);
-      isApiOnline = data.status === 'ok';
-      return isApiOnline;
+        // Tenta obter token JWT se não tiver
+        if (!apiToken) {
+            await loginToAPI(currentUser.username, currentUser.password);
+        }
+
+        const result = await sendBRDToAPI(currentUser.walletAddress, toAddress, sendAmount);
+
+        if (result) {
+            const newBalance = result.newBalance !== undefined ? parseFloat(result.newBalance) : (userBalance - sendAmount);
+            currentUser.balance = newBalance;
+            currentUser.syncedWithAPI = true;
+            currentUser.lastSync = new Date().toISOString();
+            
+            if (stakeSnapshot && !currentUser.activeStake) {
+                currentUser.activeStake = {
+                    amount: stakeSnapshot.amount,
+                    seconds: stakeSnapshot.seconds,
+                    name: stakeSnapshot.name,
+                    apr: stakeSnapshot.apr,
+                    endTime: stakeSnapshot.endTime,
+                    startTime: stakeSnapshot.startTime
+                };
+                console.log('🔒 Stake restored successfully!');
+            }
+            
+            addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, sendAmount, toAddress);
+            saveCurrentUser();
+            renderDashboard();
+            showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully! (Online)`, 'sendStatus', 'success');
+            
+            // Atualiza a lista de wallets
+            await listAllWallets();
+        } else {
+            console.log('⚠️ API falhou, usando modo offline');
+            currentUser.balance = userBalance - sendAmount;
+            
+            if (stakeSnapshot && !currentUser.activeStake) {
+                currentUser.activeStake = stakeSnapshot;
+                console.log('🔒 Stake restored after API failure');
+            }
+            
+            addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, sendAmount, toAddress);
+            saveCurrentUser();
+            renderDashboard();
+            showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
+        }
     } catch (error) {
-      console.log('⚠️ API Offline:', error.message);
-      isApiOnline = false;
-      return false;
+        console.error('❌ Send error:', error);
+        currentUser.balance = userBalance - sendAmount;
+        
+        if (stakeSnapshot && !currentUser.activeStake) {
+            currentUser.activeStake = stakeSnapshot;
+            saveCurrentUser();
+            console.log('🔒 Stake restored after error');
+        }
+        
+        addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, sendAmount, toAddress);
+        saveCurrentUser();
+        renderDashboard();
+        showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
     }
-  }
+}
   
   // ============================================================
   // REGISTER & LOGIN
@@ -927,41 +947,173 @@
     const resultDiv = document.getElementById('searchResult');
     
     if (!address) {
-      showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
-      return;
+        showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
+        return;
     }
     
     resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting Bradichain blockchain...</div>';
     resultDiv.classList.add('show');
     
     try {
-      const response = await fetch(`${API_URL}/api/balance/${address}`);
-      const data = await response.json();
-      
-      console.log('📡 Consult result:', data);
-      
-      let balance = 0;
-      let found = false;
-      let username = 'Unknown';
-      let apiConnected = true;
-      
-      if (data && data.success && data.data) {
-        balance = parseFloat(data.data.balance) || 0;
-        found = data.data.exists || false;
-        username = data.data.username || 'Unknown';
-        apiConnected = true;
-        isApiOnline = true;
-      } else {
-        apiConnected = false;
+        // Tenta obter token JWT se não tiver
+        if (!apiToken && currentUser) {
+            await loginToAPI(currentUser.username, currentUser.password);
+        }
+
+        // Faz a consulta com autenticação
+        const headers = {};
+        if (apiToken) {
+            headers['Authorization'] = `Bearer ${apiToken}`;
+        }
+        
+        const response = await fetch(`${API_URL}/api/balance/${address}`, { headers });
+        const data = await response.json();
+        
+        console.log('📡 Consult result:', data);
+        
+        let balance = 0;
+        let found = false;
+        let username = 'Unknown';
+        let apiConnected = true;
+        
+        if (data && data.success && data.data) {
+            balance = parseFloat(data.data.balance) || 0;
+            found = data.data.exists || false;
+            username = data.data.username || 'Unknown';
+            apiConnected = true;
+            isApiOnline = true;
+        } else {
+            apiConnected = false;
+            isApiOnline = false;
+            
+            // Busca nos usuários locais
+            const localUser = users.find(u => u.walletAddress === address);
+            if (localUser) {
+                balance = parseFloat(localUser.balance) || 0;
+                found = true;
+                username = localUser.username || 'Unknown';
+            }
+        }
+        
+        const balanceInUSD = balance * BRD_TO_USD;
+        
+        resultDiv.innerHTML = `
+            <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid ${found ? '#00ff66' : '#ffc800'}; border-radius: 20px; padding: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <span class="badge" style="background: ${found ? '#00ff66' : '#ffc800'}; color: #000;">
+                            ${found ? '✅ WALLET FOUND' : '⚠️ WALLET NOT FOUND'}
+                        </span>
+                        <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;">
+                            <i class="fas fa-link"></i> Bradichain
+                        </span>
+                        ${!apiConnected ? '<span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>' : '<span class="badge" style="background: #00ff88; color: #000; margin-left: 10px;">🟢 Online</span>'}
+                    </div>
+                    <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fas fa-external-link-alt"></i> View on Explorer
+                    </button>
+                </div>
+                <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${username}</span></div>
+                <div class="metric-row"><span class="metric-label">📍 Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+                <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
+                <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
+                <div class="metric-row"><span class="metric-label">📊 Exchange Rate:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
+                ${found ? `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fas fa-paper-plane"></i> Send to this wallet
+                    </button>
+                    <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fas fa-chart-line"></i> View Transactions
+                    </button>
+                </div>
+                ` : `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,200,0,0.2);">
+                    <p style="color: #ffc800; font-size: 12px;">💡 This wallet was not found on the blockchain. Please check the address.</p>
+                </div>
+                `}
+            </div>
+        `;
+        showStatus(`✅ Consultation completed`, 'searchStatus', 'success');
+        
+    } catch (error) {
+        console.error('❌ Consult error:', error);
         isApiOnline = false;
+        
+        // Fallback: busca local
         const localUser = users.find(u => u.walletAddress === address);
         if (localUser) {
-          balance = parseFloat(localUser.balance) || 0;
-          found = true;
-          username = localUser.username || 'Unknown';
+            const balance = parseFloat(localUser.balance) || 0;
+            const balanceInUSD = balance * BRD_TO_USD;
+            resultDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #ffc800; border-radius: 20px; padding: 20px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <span class="badge" style="background: #ffc800; color: #000;">⚠️ LOCAL DATA</span>
+                            <span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>
+                        </div>
+                    </div>
+                    <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${localUser.username}</span></div>
+                    <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #ffc800; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
+                    <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,200,0,0.2);">
+                        <p style="color: #ffc800; font-size: 11px;">⚠️ Using local data - API offline</p>
+                    </div>
+                </div>
+            `;
+            showStatus(`📁 Local data (API offline)`, 'searchStatus', 'warning');
+        } else {
+            resultDiv.innerHTML = `
+                <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
+                    <div style="font-size: 48px;">❌</div>
+                    <h3 style="color: #ff6464;">Connection Error</h3>
+                    <p>Could not connect to Bradicoin API. Wallet not found locally.</p>
+                    <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">
+                        🌐 Open Bradichain Explorer
+                    </button>
+                </div>
+            `;
+            showStatus(`❌ Wallet not found`, 'searchStatus', 'error');
         }
-      }
-      
+    }
+}
+
+// ============================================================
+// VERIFICAR SE ENDEREÇO EXISTE NA BLOCKCHAIN
+// ============================================================
+async function verificarEnderecoBlockchain(address) {
+    try {
+        if (!apiToken && currentUser) {
+            await loginToAPI(currentUser.username, currentUser.password);
+        }
+
+        const headers = {};
+        if (apiToken) {
+            headers['Authorization'] = `Bearer ${apiToken}`;
+        }
+
+        const response = await fetch(`${API_URL}/api/balance/${address}`, { headers });
+        const data = await response.json();
+        
+        if (data && data.success && data.data) {
+            return {
+                exists: data.data.exists || false,
+                balance: parseFloat(data.data.balance) || 0,
+                username: data.data.username || 'Unknown',
+                online: true
+            };
+        }
+        
+        return { exists: false, balance: 0, online: false };
+    } catch (error) {
+        console.log('⚠️ Erro ao verificar endereço:', error.message);
+        return { exists: false, balance: 0, online: false };
+    }
+}
+  
       const balanceInUSD = balance * BRD_TO_USD;
       
       resultDiv.innerHTML = `
@@ -1246,43 +1398,53 @@
   // ============================================================
   async function syncWalletWithBlockchain() {
     if (!currentUser) {
-      showStatus('❌ No user logged in', 'syncStatus', 'error');
-      return;
+        showStatus('❌ No user logged in', 'syncStatus', 'error');
+        return;
     }
 
     showStatus('🔄 Syncing with blockchain...', 'syncStatus', 'info');
 
     try {
-      const apiBalance = await syncBalanceWithAPI(currentUser.walletAddress);
-
-      if (apiBalance !== null) {
-        const currentBalance = parseFloat(currentUser.balance);
-        if (apiBalance > currentBalance) {
-          currentUser.balance = apiBalance;
-          currentUser.lastSync = new Date().toISOString();
-          currentUser.syncedWithAPI = true;
-          saveCurrentUser();
-          renderDashboard();
-          showStatus(`✅ Synced! Balance: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
-        } else if (apiBalance < currentBalance) {
-          showStatus(`ℹ️ Local balance (${formatNumber(currentBalance)} BRD) is higher. Keeping local.`, 'syncStatus', 'info');
-        } else {
-          showStatus(`✅ Balance is up to date: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
+        // Primeiro, tenta obter token JWT
+        if (!apiToken) {
+            await loginToAPI(currentUser.username, currentUser.password);
         }
-        isApiOnline = true;
-      } else {
-        showStatus('⚠️ API offline. Using local data.', 'syncStatus', 'error');
-        isApiOnline = false;
-      }
-      
-      await listAllWallets();
-      renderDashboard();
-      
+
+        // Consulta o saldo na blockchain
+        const apiBalance = await syncBalanceWithAPI(currentUser.walletAddress);
+
+        if (apiBalance !== null) {
+            const currentBalance = parseFloat(currentUser.balance);
+            
+            if (apiBalance > currentBalance) {
+                // Atualiza com o saldo da blockchain
+                currentUser.balance = apiBalance;
+                currentUser.lastSync = new Date().toISOString();
+                currentUser.syncedWithAPI = true;
+                saveCurrentUser();
+                renderDashboard();
+                showStatus(`✅ Synced! Balance: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
+                console.log('💰 Balance updated from blockchain:', apiBalance);
+            } else if (apiBalance < currentBalance) {
+                showStatus(`ℹ️ Local balance (${formatNumber(currentBalance)} BRD) is higher. Keeping local.`, 'syncStatus', 'info');
+            } else {
+                showStatus(`✅ Balance is up to date: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
+            }
+            isApiOnline = true;
+        } else {
+            showStatus('⚠️ API offline. Using local data.', 'syncStatus', 'error');
+            isApiOnline = false;
+        }
+        
+        // Atualiza a lista de wallets
+        await listAllWallets();
+        renderDashboard();
+        
     } catch (error) {
-      showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
-      isApiOnline = false;
+        showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
+        isApiOnline = false;
     }
-  }
+}
   
   // ============================================================
   // RENDER FUNCTIONS
