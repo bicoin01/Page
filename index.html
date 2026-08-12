@@ -274,7 +274,6 @@
   let allWallets = [];
   let apiToken = null;
   let isApiOnline = false;
-  let stakingHistory = [];
   
   // ============================================================
   // HELPER: Format Large Numbers
@@ -285,7 +284,7 @@
   }
   
   // ============================================================
-  // STORAGE FUNCTIONS (apenas para sessão, não para dados da blockchain)
+  // STORAGE FUNCTIONS
   // ============================================================
   function loadUsers() {
     try {
@@ -359,8 +358,8 @@
     return seed.join(' ');
   }
   
-    // ============================================================
-  // API FUNCTIONS - COM FALLBACK AUTOMÁTICO
+  // ============================================================
+  // API FUNCTIONS - COM FALLBACK
   // ============================================================
   
   async function loginToAPI(username, password) {
@@ -427,13 +426,12 @@
         isApiOnline = true;
         return true;
       }
-      // Se a API retornar erro, ainda consideramos que o usuário foi criado localmente
       isApiOnline = false;
-      return true; // Retorna true para continuar o fluxo
+      return true;
     } catch (error) {
       console.log('⚠️ Register Error:', error.message);
       isApiOnline = false;
-      return true; // Fallback: considera criado localmente
+      return true;
     }
   }
 
@@ -474,7 +472,6 @@
     try {
       console.log('💰 Getting real balance for:', address);
       
-      // Se não tiver token, tenta fazer login
       if (!apiToken && currentUser) {
         console.log('🔑 Obtendo token JWT para consulta...');
         const token = await loginToAPI(currentUser.username, currentUser.password);
@@ -485,7 +482,6 @@
         }
       }
 
-      // Se ainda não tiver token, usa fallback
       if (!apiToken) {
         console.log('⚠️ Sem token JWT, usando fallback');
         isApiOnline = false;
@@ -498,7 +494,6 @@
         }
       });
       
-      // Se a resposta for 401, tenta renovar o token
       if (response.status === 401 || response.status === 403) {
         console.log('⚠️ Token expirado ou inválido. Renovando...');
         const newToken = await loginToAPI(currentUser.username, currentUser.password);
@@ -548,9 +543,6 @@
     }
   }
 
-  // ============================================================
-  // FALLBACK PARA DADOS LOCALES
-  // ============================================================
   function getFallbackBalance(address) {
     console.log('📁 Usando fallback local para:', address);
     const localUser = users.find(u => u.walletAddress === address);
@@ -574,7 +566,6 @@
 
   async function sendRealBRD(fromAddress, toAddress, amount) {
     try {
-      // Tenta obter token se não tiver
       if (!apiToken && currentUser) {
         console.log('🔑 Obtendo token JWT para envio...');
         const token = await loginToAPI(currentUser.username, currentUser.password);
@@ -649,13 +640,9 @@
     }
   }
 
-  // ============================================================
-  // FALLBACK PARA ENVIO OFFLINE
-  // ============================================================
   function sendFallbackTransaction(fromAddress, toAddress, amount) {
     console.log('📁 Usando fallback offline para envio');
     
-    // Atualiza os dados locais
     const fromUser = users.find(u => u.walletAddress === fromAddress);
     const toUser = users.find(u => u.walletAddress === toAddress);
     
@@ -693,198 +680,10 @@
     };
   }
 
-  async function stakeRealBRD(address, amount, duration) {
-    try {
-      if (!apiToken && currentUser) {
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          isApiOnline = false;
-          return stakeFallback(address, amount, duration);
-        }
-      }
-
-      const response = await fetch(`${API_URL}/api/stake`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-        body: JSON.stringify({ 
-          address, 
-          amount: parseFloat(amount),
-          duration: duration || '2min'
-        })
-      });
-      const data = await response.json();
-      console.log('📡 Stake Response:', data);
-      
-      if (response.status === 401 || response.status === 403) {
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          const retryResponse = await fetch(`${API_URL}/api/stake`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`
-            },
-            body: JSON.stringify({ address, amount: parseFloat(amount), duration })
-          });
-          const retryData = await retryResponse.json();
-          if (retryData.success) {
-            isApiOnline = true;
-            return retryData.data || { txHash: 'confirmed', staked: amount };
-          }
-        }
-        isApiOnline = false;
-        return stakeFallback(address, amount, duration);
-      }
-      
-      if (data.success) {
-        isApiOnline = true;
-        return data.data || { txHash: 'confirmed', staked: amount };
-      }
-      isApiOnline = false;
-      return stakeFallback(address, amount, duration);
-    } catch (error) {
-      console.log('⚠️ Stake Error:', error.message);
-      isApiOnline = false;
-      return stakeFallback(address, amount, duration);
-    }
-  }
-
-  function stakeFallback(address, amount, duration) {
-    console.log('📁 Usando fallback offline para stake');
-    const user = users.find(u => u.walletAddress === address);
-    if (user) {
-      user.balance = parseFloat(user.balance) - parseFloat(amount);
-      user.activeStake = {
-        amount: parseFloat(amount),
-        duration: duration,
-        startTime: Date.now()
-      };
-      saveUsers();
-    }
-    return { txHash: 'offline_' + Date.now().toString(36), staked: amount };
-  }
-
-  async function unstakeRealBRD(address) {
-    try {
-      if (!apiToken && currentUser) {
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          isApiOnline = false;
-          return unstakeFallback(address);
-        }
-      }
-
-      const response = await fetch(`${API_URL}/api/unstake`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-        body: JSON.stringify({ address })
-      });
-      const data = await response.json();
-      console.log('📡 Unstake Response:', data);
-      
-      if (response.status === 401 || response.status === 403) {
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          const retryResponse = await fetch(`${API_URL}/api/unstake`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`
-            },
-            body: JSON.stringify({ address })
-          });
-          const retryData = await retryResponse.json();
-          if (retryData.success) {
-            isApiOnline = true;
-            return retryData.data || { txHash: 'confirmed' };
-          }
-        }
-        isApiOnline = false;
-        return unstakeFallback(address);
-      }
-      
-      if (data.success) {
-        isApiOnline = true;
-        return data.data || { txHash: 'confirmed' };
-      }
-      isApiOnline = false;
-      return unstakeFallback(address);
-    } catch (error) {
-      console.log('⚠️ Unstake Error:', error.message);
-      isApiOnline = false;
-      return unstakeFallback(address);
-    }
-  }
-
-  function unstakeFallback(address) {
-    console.log('📁 Usando fallback offline para unstake');
-    const user = users.find(u => u.walletAddress === address);
-    if (user && user.activeStake) {
-      const amount = parseFloat(user.activeStake.amount);
-      user.balance = parseFloat(user.balance) + amount;
-      user.activeStake = null;
-      saveUsers();
-    }
-    return { txHash: 'offline_' + Date.now().toString(36) };
-  }
-
-    // ============================================================
-  // GET REAL TRANSACTIONS - OTIMIZADO (SEM ROTA 404)
   // ============================================================
-  async function getRealTransactions(address, limit = 20) {
-    console.log('📁 Usando dados locais para transações de:', address);
-    
-    // Verifica se a API está online antes de tentar
-    if (isApiOnline) {
-      try {
-        if (!apiToken && currentUser) {
-          const token = await loginToAPI(currentUser.username, currentUser.password);
-          if (!token) {
-            isApiOnline = false;
-            return getFallbackTransactions(address, limit);
-          }
-        }
-
-        // Tenta buscar da API
-        const response = await fetch(`${API_URL}/api/transactions/${address}?limit=${limit}`, {
-          headers: {
-            'Authorization': `Bearer ${apiToken}`
-          }
-        });
-        
-        // Se a rota não existir (404), NÃO TENTA NOVAMENTE
-        if (response.status === 404) {
-          console.log('ℹ️ Rota de transações não disponível na API, usando dados locais');
-          isApiOnline = false;
-          return getFallbackTransactions(address, limit);
-        }
-        
-        const data = await response.json();
-        console.log('📡 Transactions Response:', data);
-        
-        if (data.success) {
-          isApiOnline = true;
-          return data.data || [];
-        }
-      } catch (error) {
-        console.log('⚠️ Transactions API error, usando fallback:', error.message);
-      }
-    }
-    
-    // Sempre retorna fallback local
-    return getFallbackTransactions(address, limit);
-  }
-
+  // TRANSACTIONS - APENAS DADOS LOCAIS (SEM API)
   // ============================================================
-  // FALLBACK PARA TRANSAÇÕES LOCAIS
-  // ============================================================
-  function getFallbackTransactions(address, limit = 20) {
+  function getLocalTransactions(address, limit = 20) {
     console.log('📁 Carregando transações locais de:', address);
     const user = users.find(u => u.walletAddress === address);
     if (user && user.transactions) {
@@ -895,9 +694,9 @@
     console.log('📭 Nenhuma transação local encontrada');
     return [];
   }
-   
+
   // ============================================================
-  // VERIFICAR SE ENDEREÇO EXISTE NA BLOCKCHAIN
+  // VERIFICAR SE ENDEREÇO EXISTE
   // ============================================================
   async function verificarEnderecoBlockchain(address) {
     try {
@@ -1014,7 +813,6 @@
     loginToAPI(username, password).then(token => {
       if (token) {
         console.log('✅ Login na API realizado com sucesso');
-        // Busca dados reais da blockchain
         refreshRealData();
       } else {
         console.log('⚠️ Modo offline - sem token JWT');
@@ -1033,13 +831,12 @@
   }
 
   // ============================================================
-  // REFRESH REAL DATA DA BLOCKCHAIN
+  // REFRESH REAL DATA
   // ============================================================
   async function refreshRealData() {
     if (!currentUser) return;
     
     try {
-      // Tenta buscar saldo da API
       const realData = await getRealBalance(currentUser.walletAddress);
       if (realData) {
         currentUser.balance = realData.balance || currentUser.balance;
@@ -1050,8 +847,8 @@
         saveCurrentUser();
       }
       
-      // SEMPRE USA DADOS LOCAAAAIS PARA TRANSAÇÕES (EVITA ERRO 404)
-      console.log('📁 Usando dados locais para transações (fallback)');
+      // TRANSAÇÕES SEMPRE LOCAIS (NUNCA CHAMA A API)
+      console.log('📁 Usando dados locais para transações');
       if (!currentUser.transactions) currentUser.transactions = [];
       
       renderDashboard();
@@ -1217,7 +1014,7 @@
   }
   
   // ============================================================
-  // SEND BRD - FUNCIONALIDADE REAL
+  // SEND BRD
   // ============================================================
   async function sendBRD(toAddress, amount) {
     if (!currentUser) {
@@ -1249,7 +1046,6 @@
       return;
     }
 
-    // Verifica se o endereço de destino existe
     showStatus('🔍 Verificando endereço de destino...', 'sendStatus', 'info');
     const destCheck = await verificarEnderecoBlockchain(toAddress);
     
@@ -1279,14 +1075,10 @@
         
         addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, -sendAmount, toAddress);
         saveCurrentUser();
-        
-        // Busca saldo atualizado
         await refreshRealData();
-        
         showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully! (Tx: ${result.txHash || 'confirmado'})`, 'sendStatus', 'success');
         await listAllWallets();
       } else {
-        // Fallback offline
         console.log('⚠️ API falhou, usando modo offline');
         currentUser.balance = userBalance - sendAmount;
         addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, -sendAmount, toAddress);
@@ -1471,7 +1263,7 @@
   }
   
   // ============================================================
-  // STAKING - FUNCIONALIDADE REAL
+  // STAKING
   // ============================================================
   const stakeOptions = [
     { name: "2 Minutes", seconds: 120, minStake: 1, apr: APR_2MIN, icon: "⚡", duration: '2min' },
@@ -1678,8 +1470,8 @@
     }
   }
   
-    // ============================================================
-  // SYNC WITH BLOCKCHAIN
+  // ============================================================
+  // SYNC WITH BLOCKCHAIN - APENAS SALDO (SEM TRANSAÇÕES)
   // ============================================================
   async function syncWalletWithBlockchain() {
     if (!currentUser) {
@@ -1687,73 +1479,59 @@
       return;
     }
 
-    showStatus('🔄 Sincronizando com a blockchain...', 'syncStatus', 'info');
+    showStatus('🔄 Sincronizando saldo com a blockchain...', 'syncStatus', 'info');
 
     try {
-      // Tenta sincronizar o saldo
-        async function syncBalanceWithAPI(address) {
-    try {
-      console.log('🔄 Sincronizando saldo com API:', address);
-      
-      // Se não tiver token, tenta fazer login
-      if (!apiToken && currentUser) {
-        console.log('🔑 Obtendo token JWT para consulta...');
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          console.log('⚠️ Não foi possível obter token JWT');
-          isApiOnline = false;
-          return null;
-        }
-      }
-
-      // Se ainda não tiver token, retorna null
+      // Tenta obter token JWT se não tiver
       if (!apiToken) {
-        console.log('⚠️ Sem token JWT');
-        isApiOnline = false;
-        return null;
+        await loginToAPI(currentUser.username, currentUser.password);
       }
 
-      const response = await fetch(`${API_URL}/api/balance/${address}`, {
-        headers: {
-          'Authorization': `Bearer ${apiToken}`
-        }
-      });
-      
-      // Se a resposta for 401, tenta renovar o token
-      if (response.status === 401 || response.status === 403) {
-        console.log('⚠️ Token expirado, renovando...');
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          const retryResponse = await fetch(`${API_URL}/api/balance/${address}`, {
-            headers: {
-              'Authorization': `Bearer ${newToken}`
-            }
-          });
-          const retryData = await retryResponse.json();
-          if (retryData && retryData.success && retryData.data) {
-            isApiOnline = true;
-            return parseFloat(retryData.data.balance) || 0;
+      if (apiToken) {
+        // Busca apenas o saldo na API
+        const response = await fetch(`${API_URL}/api/balance/${currentUser.walletAddress}`, {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`
           }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.success && data.data) {
+            const apiBalance = parseFloat(data.data.balance) || 0;
+            const currentBalance = parseFloat(currentUser.balance);
+            
+            if (apiBalance > currentBalance) {
+              currentUser.balance = apiBalance;
+              currentUser.lastSync = new Date().toISOString();
+              currentUser.syncedWithAPI = true;
+              saveCurrentUser();
+              renderDashboard();
+              showStatus(`✅ Sincronizado! Saldo: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
+              console.log('💰 Saldo atualizado da blockchain:', apiBalance);
+            } else if (apiBalance < currentBalance) {
+              showStatus(`ℹ️ Saldo local (${formatNumber(currentBalance)} BRD) é maior. Mantendo local.`, 'syncStatus', 'info');
+            } else {
+              showStatus(`✅ Saldo atualizado: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
+            }
+            isApiOnline = true;
+          }
+        } else {
+          showStatus('⚠️ API offline. Usando dados locais.', 'syncStatus', 'warning');
+          isApiOnline = false;
         }
+      } else {
+        showStatus('⚠️ API offline. Usando dados locais.', 'syncStatus', 'warning');
         isApiOnline = false;
-        return null;
       }
       
-      const data = await response.json();
-      console.log('📡 API Response:', data);
-      
-      if (data && data.success && data.data) {
-        isApiOnline = true;
-        return parseFloat(data.data.balance) || 0;
-      }
-      
-      isApiOnline = false;
-      return null;
+      // TRANSAÇÕES SEMPRE LOCAIS
+      console.log('📁 Transações locais carregadas');
+      renderDashboard();
       
     } catch (error) {
-      console.log('⚠️ API Error:', error.message);
+      showStatus(`❌ Erro na sincronização: ${error.message}`, 'syncStatus', 'error');
       isApiOnline = false;
-      return null;
     }
   }
   
@@ -1946,11 +1724,11 @@
     `;
     }).join('');
     
+    // TRANSAÇÕES SEMPRE LOCAIS
     const transactions = currentUser.transactions || [];
     const historyHtml = transactions.length === 0 
       ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ No transactions yet</td></tr>'
       : transactions.slice(0, 20).map(function(t) {
-        const amountClass = t.amount >= 0 ? 'badge-received' : 'badge-sent';
         const typeClass = t.type.toLowerCase().includes('stake') ? 'badge-stake' : 
                           t.type.toLowerCase().includes('reward') ? 'badge-reward' :
                           t.type.toLowerCase().includes('sent') ? 'badge-sent' : 'badge-received';
