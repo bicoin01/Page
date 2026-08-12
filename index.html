@@ -834,51 +834,65 @@
     return { txHash: 'offline_' + Date.now().toString(36) };
   }
 
+    // ============================================================
+  // GET REAL TRANSACTIONS - OTIMIZADO (SEM ROTA 404)
+  // ============================================================
   async function getRealTransactions(address, limit = 20) {
-    try {
-      if (!apiToken && currentUser) {
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
+    console.log('📁 Usando dados locais para transações de:', address);
+    
+    // Verifica se a API está online antes de tentar
+    if (isApiOnline) {
+      try {
+        if (!apiToken && currentUser) {
+          const token = await loginToAPI(currentUser.username, currentUser.password);
+          if (!token) {
+            isApiOnline = false;
+            return getFallbackTransactions(address, limit);
+          }
+        }
+
+        // Tenta buscar da API
+        const response = await fetch(`${API_URL}/api/transactions/${address}?limit=${limit}`, {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`
+          }
+        });
+        
+        // Se a rota não existir (404), NÃO TENTA NOVAMENTE
+        if (response.status === 404) {
+          console.log('ℹ️ Rota de transações não disponível na API, usando dados locais');
           isApiOnline = false;
           return getFallbackTransactions(address, limit);
         }
-      }
-
-      const response = await fetch(`${API_URL}/api/transactions/${address}?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${apiToken}`
+        
+        const data = await response.json();
+        console.log('📡 Transactions Response:', data);
+        
+        if (data.success) {
+          isApiOnline = true;
+          return data.data || [];
         }
-      });
-      
-      // Se a rota não existir (404), usa fallback
-      if (response.status === 404) {
-        console.log('⚠️ Rota de transações não encontrada (404), usando fallback');
-        isApiOnline = false;
-        return getFallbackTransactions(address, limit);
+      } catch (error) {
+        console.log('⚠️ Transactions API error, usando fallback:', error.message);
       }
-      
-      const data = await response.json();
-      console.log('📡 Transactions Response:', data);
-      
-      if (data.success) {
-        isApiOnline = true;
-        return data.data || [];
-      }
-      isApiOnline = false;
-      return getFallbackTransactions(address, limit);
-    } catch (error) {
-      console.log('⚠️ Transactions Error:', error.message);
-      isApiOnline = false;
-      return getFallbackTransactions(address, limit);
     }
+    
+    // Sempre retorna fallback local
+    return getFallbackTransactions(address, limit);
   }
 
+  // ============================================================
+  // FALLBACK PARA TRANSAÇÕES LOCAIS
+  // ============================================================
   function getFallbackTransactions(address, limit = 20) {
-    console.log('📁 Usando fallback local para transações de:', address);
+    console.log('📁 Carregando transações locais de:', address);
     const user = users.find(u => u.walletAddress === address);
     if (user && user.transactions) {
-      return user.transactions.slice(0, limit);
+      const txs = user.transactions.slice(0, limit);
+      console.log(`📊 ${txs.length} transações locais encontradas`);
+      return txs;
     }
+    console.log('📭 Nenhuma transação local encontrada');
     return [];
   }
    
@@ -1025,34 +1039,27 @@
     if (!currentUser) return;
     
     try {
+      // Tenta buscar saldo da API
       const realData = await getRealBalance(currentUser.walletAddress);
       if (realData) {
-        currentUser.balance = realData.balance;
-        currentUser.staked = realData.staked;
-        currentUser.rewards = realData.rewards;
-        currentUser.syncedWithAPI = true;
+        currentUser.balance = realData.balance || currentUser.balance;
+        currentUser.staked = realData.staked || 0;
+        currentUser.rewards = realData.rewards || 0;
+        currentUser.syncedWithAPI = realData.exists || false;
         currentUser.lastSync = new Date().toISOString();
         saveCurrentUser();
-        
-        // Busca transações reais
-        const realTxs = await getRealTransactions(currentUser.walletAddress, 20);
-        if (realTxs) {
-          currentUser.transactions = realTxs.map(tx => ({
-            type: tx.type || 'TRANSFER',
-            details: tx.details || `${tx.type} of ${tx.amount} BRD`,
-            amount: tx.amount || 0,
-            address: tx.to || tx.from,
-            date: new Date(tx.timestamp).toLocaleString('pt-BR'),
-            timestamp: tx.timestamp || Date.now()
-          }));
-          saveCurrentUser();
-        }
-        
-        renderDashboard();
-        showStatus(`✅ Dados sincronizados com a blockchain!`, 'syncStatus', 'success');
       }
+      
+      // SEMPRE USA DADOS LOCAAAAIS PARA TRANSAÇÕES (EVITA ERRO 404)
+      console.log('📁 Usando dados locais para transações (fallback)');
+      if (!currentUser.transactions) currentUser.transactions = [];
+      
+      renderDashboard();
+      showStatus(`✅ Dados atualizados! ${isApiOnline ? '(Online)' : '(Offline - dados locais)'}`, 'syncStatus', isApiOnline ? 'success' : 'warning');
+      
     } catch (error) {
       console.error('❌ Erro ao sincronizar:', error);
+      showStatus(`⚠️ Usando dados locais`, 'syncStatus', 'warning');
     }
   }
   
@@ -1671,7 +1678,7 @@
     }
   }
   
-  // ============================================================
+    // ============================================================
   // SYNC WITH BLOCKCHAIN
   // ============================================================
   async function syncWalletWithBlockchain() {
@@ -1680,13 +1687,73 @@
       return;
     }
 
-    showStatus('🔄 Syncing with blockchain...', 'syncStatus', 'info');
+    showStatus('🔄 Sincronizando com a blockchain...', 'syncStatus', 'info');
 
     try {
-      await refreshRealData();
-    } catch (error) {
-      showStatus(`❌ Sync error: ${error.message}`, 'syncStatus', 'error');
+      // Tenta sincronizar o saldo
+        async function syncBalanceWithAPI(address) {
+    try {
+      console.log('🔄 Sincronizando saldo com API:', address);
+      
+      // Se não tiver token, tenta fazer login
+      if (!apiToken && currentUser) {
+        console.log('🔑 Obtendo token JWT para consulta...');
+        const token = await loginToAPI(currentUser.username, currentUser.password);
+        if (!token) {
+          console.log('⚠️ Não foi possível obter token JWT');
+          isApiOnline = false;
+          return null;
+        }
+      }
+
+      // Se ainda não tiver token, retorna null
+      if (!apiToken) {
+        console.log('⚠️ Sem token JWT');
+        isApiOnline = false;
+        return null;
+      }
+
+      const response = await fetch(`${API_URL}/api/balance/${address}`, {
+        headers: {
+          'Authorization': `Bearer ${apiToken}`
+        }
+      });
+      
+      // Se a resposta for 401, tenta renovar o token
+      if (response.status === 401 || response.status === 403) {
+        console.log('⚠️ Token expirado, renovando...');
+        const newToken = await loginToAPI(currentUser.username, currentUser.password);
+        if (newToken) {
+          const retryResponse = await fetch(`${API_URL}/api/balance/${address}`, {
+            headers: {
+              'Authorization': `Bearer ${newToken}`
+            }
+          });
+          const retryData = await retryResponse.json();
+          if (retryData && retryData.success && retryData.data) {
+            isApiOnline = true;
+            return parseFloat(retryData.data.balance) || 0;
+          }
+        }
+        isApiOnline = false;
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log('📡 API Response:', data);
+      
+      if (data && data.success && data.data) {
+        isApiOnline = true;
+        return parseFloat(data.data.balance) || 0;
+      }
+      
       isApiOnline = false;
+      return null;
+      
+    } catch (error) {
+      console.log('⚠️ API Error:', error.message);
+      isApiOnline = false;
+      return null;
     }
   }
   
