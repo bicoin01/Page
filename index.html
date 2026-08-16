@@ -245,6 +245,7 @@
     .auth-buttons .btn { width: 100%; justify-content: center; }
     .divider { border: none; border-top: 1px solid rgba(168, 85, 247, 0.2); margin: 20px 0; }
     .user-limit-msg { background: rgba(255, 200, 0, 0.15); border: 2px solid #ffcc00; border-radius: 16px; padding: 15px; margin-bottom: 16px; color: #ffcc00; text-align: center; font-weight: 600; }
+    .storage-indicator { font-size: 10px; padding: 4px 8px; border-radius: 12px; background: rgba(0, 200, 255, 0.1); border: 1px solid rgba(0, 200, 255, 0.3); color: #00ccff; }
   </style>
 </head>
 <body>
@@ -254,7 +255,6 @@
   // ============================================================
   // CONFIGURATION
   // ============================================================
-  const API_URL = 'https://bradicoin-api.onrender.com';
   const BRADICHAIN_URL = 'https://www.bradichain.com';
   const BRD_TO_USD = 10;
   const RESERVE_SUPPLY_BRD = 100000000000000000;
@@ -271,9 +271,6 @@
   let showLogin = true;
   let loginError = '';
   let regError = '';
-  let allWallets = [];
-  let apiToken = null;
-  let isApiOnline = false;
   
   // ============================================================
   // HELPER: Format Large Numbers
@@ -283,15 +280,30 @@
     return Number(num).toLocaleString('en-US', { maximumFractionDigits: 0 });
   }
   
+  function formatNumberDecimal(num) {
+    if (num === undefined || num === null || isNaN(num)) return '0';
+    return Number(num).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  }
+  
   // ============================================================
-  // STORAGE FUNCTIONS
+  // STORAGE FUNCTIONS - PERSISTÊNCIA LOCAL
   // ============================================================
   function loadUsers() {
     try {
       const stored = localStorage.getItem('bradicoin_premium_data');
       if(stored) {
         users = JSON.parse(stored);
-        console.log('📊 Users loaded:', users.length);
+        console.log('📊 Users loaded from localStorage:', users.length);
+        
+        // Garantir que todos os usuários tenham os campos necessários
+        users = users.map(u => {
+          if (!u.stakingHistory) u.stakingHistory = [];
+          if (!u.transactions) u.transactions = [];
+          if (!u.activeStake) u.activeStake = null;
+          return u;
+        });
+        
+        saveUsers();
       } else {
         users = [];
         const defaultUser = {
@@ -303,9 +315,8 @@
           balance: 100000000000000000,
           activeStake: null,
           transactions: [],
-          createdAt: new Date().toISOString(),
-          lastSync: null,
-          syncedWithAPI: false
+          stakingHistory: [],
+          createdAt: new Date().toISOString()
         };
         users.push(defaultUser);
         saveUsers();
@@ -320,7 +331,7 @@
   function saveUsers() {
     try {
       localStorage.setItem('bradicoin_premium_data', JSON.stringify(users));
-      console.log('💾 Users saved:', users.length);
+      console.log('💾 Users saved to localStorage:', users.length);
     } catch(e) {
       console.error('❌ Error saving users:', e);
     }
@@ -359,379 +370,9 @@
   }
   
   // ============================================================
-  // API FUNCTIONS - COM FALLBACK
-  // ============================================================
-  
-  async function loginToAPI(username, password) {
-    try {
-      console.log('🔑 Logging into API:', username);
-      const response = await fetch(`${API_URL}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      console.log('📡 Login Response:', data);
-      
-      if (response.status === 401 || response.status === 404) {
-        console.log('⚠️ Usuário não registrado na API. Tentando registrar...');
-        const registered = await registerUserOnAPI(username, password);
-        if (registered) {
-          console.log('✅ Usuário registrado na API! Tentando login novamente...');
-          const retryResponse = await fetch(`${API_URL}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          });
-          const retryData = await retryResponse.json();
-          console.log('📡 Login Retry Response:', retryData);
-          if (retryData.success && retryData.token) {
-            apiToken = retryData.token;
-            isApiOnline = true;
-            console.log('✅ Token JWT obtido com sucesso após registro!');
-            return retryData.token;
-          }
-        }
-        isApiOnline = false;
-        return null;
-      }
-      
-      if (data.success && data.token) {
-        apiToken = data.token;
-        isApiOnline = true;
-        console.log('✅ Token JWT obtido com sucesso!');
-        return data.token;
-      }
-      console.log('⚠️ Falha ao obter token JWT');
-      isApiOnline = false;
-      return null;
-    } catch (error) {
-      console.log('⚠️ Login API error:', error.message);
-      isApiOnline = false;
-      return null;
-    }
-  }
-
-  async function registerUserOnAPI(username, password) {
-    try {
-      console.log('📝 Registrando usuário na API:', username);
-      const response = await fetch(`${API_URL}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      console.log('📡 Register Response:', data);
-      if (data.success) {
-        isApiOnline = true;
-        return true;
-      }
-      isApiOnline = false;
-      return true;
-    } catch (error) {
-      console.log('⚠️ Register Error:', error.message);
-      isApiOnline = false;
-      return true;
-    }
-  }
-
-  async function checkAPIConnection() {
-    try {
-      const response = await fetch(`${API_URL}/health`);
-      const data = await response.json();
-      console.log('📡 API Status:', data);
-      isApiOnline = data.status === 'ok' || data.status === 'online';
-      return isApiOnline;
-    } catch (error) {
-      console.log('⚠️ API Offline:', error.message);
-      isApiOnline = false;
-      return false;
-    }
-  }
-
-  async function listAllWallets() {
-    try {
-      const response = await fetch(`${API_URL}/api/users`);
-      const data = await response.json();
-      if (data && data.success && data.data) {
-        allWallets = data.data.users || [];
-        isApiOnline = true;
-        console.log('📊 Wallets loaded:', allWallets.length);
-        return allWallets;
-      }
-      isApiOnline = false;
-      return [];
-    } catch (error) {
-      console.log('⚠️ List wallets error:', error.message);
-      isApiOnline = false;
-      return [];
-    }
-  }
-
-  async function getRealBalance(address) {
-    try {
-      console.log('💰 Getting real balance for:', address);
-      
-      if (!apiToken && currentUser) {
-        console.log('🔑 Obtendo token JWT para consulta...');
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          console.log('⚠️ Não foi possível obter token JWT');
-          isApiOnline = false;
-          return getFallbackBalance(address);
-        }
-      }
-
-      if (!apiToken) {
-        console.log('⚠️ Sem token JWT, usando fallback');
-        isApiOnline = false;
-        return getFallbackBalance(address);
-      }
-
-      const response = await fetch(`${API_URL}/api/balance/${address}`, {
-        headers: {
-          'Authorization': `Bearer ${apiToken}`
-        }
-      });
-      
-      if (response.status === 401 || response.status === 403) {
-        console.log('⚠️ Token expirado ou inválido. Renovando...');
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          const retryResponse = await fetch(`${API_URL}/api/balance/${address}`, {
-            headers: {
-              'Authorization': `Bearer ${newToken}`
-            }
-          });
-          const retryData = await retryResponse.json();
-          if (retryData && retryData.success && retryData.data) {
-            isApiOnline = true;
-            return {
-              balance: parseFloat(retryData.data.balance) || 0,
-              staked: parseFloat(retryData.data.staked) || 0,
-              rewards: parseFloat(retryData.data.rewards) || 0,
-              exists: retryData.data.exists || false,
-              username: retryData.data.username || 'Unknown'
-            };
-          }
-        }
-        isApiOnline = false;
-        return getFallbackBalance(address);
-      }
-
-      const data = await response.json();
-      console.log('📡 API Response:', data);
-      
-      if (data && data.success && data.data) {
-        isApiOnline = true;
-        return {
-          balance: parseFloat(data.data.balance) || 0,
-          staked: parseFloat(data.data.staked) || 0,
-          rewards: parseFloat(data.data.rewards) || 0,
-          exists: data.data.exists || false,
-          username: data.data.username || 'Unknown'
-        };
-      }
-      
-      isApiOnline = false;
-      return getFallbackBalance(address);
-      
-    } catch (error) {
-      console.log('⚠️ API Error:', error.message);
-      isApiOnline = false;
-      return getFallbackBalance(address);
-    }
-  }
-
-  function getFallbackBalance(address) {
-    console.log('📁 Usando fallback local para:', address);
-    const localUser = users.find(u => u.walletAddress === address);
-    if (localUser) {
-      return {
-        balance: parseFloat(localUser.balance) || 0,
-        staked: localUser.staked || 0,
-        rewards: localUser.rewards || 0,
-        exists: true,
-        username: localUser.username || 'Unknown'
-      };
-    }
-    return {
-      balance: 0,
-      staked: 0,
-      rewards: 0,
-      exists: false,
-      username: 'Unknown'
-    };
-  }
-
-  async function sendRealBRD(fromAddress, toAddress, amount) {
-    try {
-      if (!apiToken && currentUser) {
-        console.log('🔑 Obtendo token JWT para envio...');
-        const token = await loginToAPI(currentUser.username, currentUser.password);
-        if (!token) {
-          console.log('⚠️ Não foi possível obter token JWT, usando fallback offline');
-          isApiOnline = false;
-          return sendFallbackTransaction(fromAddress, toAddress, amount);
-        }
-      }
-
-      if (!apiToken) {
-        console.log('⚠️ Sem token JWT disponível, usando fallback offline');
-        isApiOnline = false;
-        return sendFallbackTransaction(fromAddress, toAddress, amount);
-      }
-
-      console.log('💸 Sending transaction with JWT:', { fromAddress, toAddress, amount });
-      const response = await fetch(`${API_URL}/api/send`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-        body: JSON.stringify({ 
-          fromAddress, 
-          toAddress, 
-          amount: parseFloat(amount) 
-        })
-      });
-      const data = await response.json();
-      console.log('📡 Send Response:', data);
-      
-      if (response.status === 401 || response.status === 403) {
-        console.log('⚠️ Token expirado ou inválido. Tentando renovar...');
-        const newToken = await loginToAPI(currentUser.username, currentUser.password);
-        if (newToken) {
-          const retryResponse = await fetch(`${API_URL}/api/send`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${newToken}`
-            },
-            body: JSON.stringify({ 
-              fromAddress, 
-              toAddress, 
-              amount: parseFloat(amount) 
-            })
-          });
-          const retryData = await retryResponse.json();
-          console.log('📡 Send Retry Response:', retryData);
-          if (retryData.success) {
-            isApiOnline = true;
-            return retryData.data || { newBalance: 0, txHash: retryData.txHash || 'confirmed' };
-          }
-        }
-        isApiOnline = false;
-        return sendFallbackTransaction(fromAddress, toAddress, amount);
-      }
-      
-      if (data.success) {
-        isApiOnline = true;
-        return data.data || { newBalance: 0, txHash: data.txHash || 'confirmed' };
-      } else {
-        console.log('⚠️ Erro no envio:', data.message);
-        isApiOnline = false;
-        return sendFallbackTransaction(fromAddress, toAddress, amount);
-      }
-    } catch (error) {
-      console.log('⚠️ Send Error:', error.message);
-      isApiOnline = false;
-      return sendFallbackTransaction(fromAddress, toAddress, amount);
-    }
-  }
-
-  function sendFallbackTransaction(fromAddress, toAddress, amount) {
-    console.log('📁 Usando fallback offline para envio');
-    
-    const fromUser = users.find(u => u.walletAddress === fromAddress);
-    const toUser = users.find(u => u.walletAddress === toAddress);
-    
-    if (fromUser) {
-      fromUser.balance = parseFloat(fromUser.balance) - parseFloat(amount);
-      fromUser.transactions = fromUser.transactions || [];
-      fromUser.transactions.unshift({
-        type: 'SENT',
-        details: `Sent ${formatNumber(amount)} BRD to ${toAddress.substring(0, 20)}... (offline)`,
-        amount: -parseFloat(amount),
-        address: toAddress,
-        date: new Date().toLocaleString('pt-BR'),
-        timestamp: Date.now()
-      });
-      saveUsers();
-    }
-    
-    if (toUser) {
-      toUser.balance = parseFloat(toUser.balance) + parseFloat(amount);
-      toUser.transactions = toUser.transactions || [];
-      toUser.transactions.unshift({
-        type: 'RECEIVED',
-        details: `Received ${formatNumber(amount)} BRD from ${fromAddress.substring(0, 20)}... (offline)`,
-        amount: parseFloat(amount),
-        address: fromAddress,
-        date: new Date().toLocaleString('pt-BR'),
-        timestamp: Date.now()
-      });
-      saveUsers();
-    }
-    
-    return {
-      newBalance: fromUser ? parseFloat(fromUser.balance) : 0,
-      txHash: 'offline_' + Date.now().toString(36)
-    };
-  }
-
-  // ============================================================
-  // TRANSACTIONS - APENAS DADOS LOCAIS (SEM API)
-  // ============================================================
-  function getLocalTransactions(address, limit = 20) {
-    console.log('📁 Carregando transações locais de:', address);
-    const user = users.find(u => u.walletAddress === address);
-    if (user && user.transactions) {
-      const txs = user.transactions.slice(0, limit);
-      console.log(`📊 ${txs.length} transações locais encontradas`);
-      return txs;
-    }
-    console.log('📭 Nenhuma transação local encontrada');
-    return [];
-  }
-
-  // ============================================================
-  // VERIFICAR SE ENDEREÇO EXISTE
-  // ============================================================
-  async function verificarEnderecoBlockchain(address) {
-    try {
-      if (!apiToken && currentUser) {
-        await loginToAPI(currentUser.username, currentUser.password);
-      }
-
-      const headers = {};
-      if (apiToken) {
-        headers['Authorization'] = `Bearer ${apiToken}`;
-      }
-
-      const response = await fetch(`${API_URL}/api/balance/${address}`, { headers });
-      const data = await response.json();
-      
-      if (data && data.success && data.data) {
-        return {
-          exists: data.data.exists || false,
-          balance: parseFloat(data.data.balance) || 0,
-          username: data.data.username || 'Unknown',
-          online: true
-        };
-      }
-      
-      return { exists: false, balance: 0, online: false };
-    } catch (error) {
-      console.log('⚠️ Erro ao verificar endereço:', error.message);
-      return { exists: false, balance: 0, online: false };
-    }
-  }
-
-  // ============================================================
   // REGISTER & LOGIN
   // ============================================================
-  async function registerUser(username, password) {
+  function registerUser(username, password) {
     console.log('📝 Registering user:', username);
     
     if (users.length >= MAX_USERS) {
@@ -760,26 +401,13 @@
       balance: initialBalance,
       activeStake: null,
       transactions: [],
-      createdAt: new Date().toISOString(),
-      lastSync: null,
-      syncedWithAPI: false
+      stakingHistory: [],
+      createdAt: new Date().toISOString()
     };
     
     users.push(newUser);
     saveUsers();
-    console.log('✅ User created locally:', newUser.walletAddress);
-    
-    try {
-      const registered = await registerUserOnAPI(username, password);
-      if (registered) {
-        console.log('✅ User registered on API');
-        await loginToAPI(username, password);
-      } else {
-        console.log('⚠️ Could not register on API');
-      }
-    } catch (error) {
-      console.log('⚠️ Could not register on API:', error.message);
-    }
+    console.log('✅ User created:', newUser.walletAddress);
     
     return {
       success: true,
@@ -789,9 +417,6 @@
     };
   }
   
-  // ============================================================
-  // LOGIN
-  // ============================================================
   function loginUser(username, password) {
     console.log('🔐 Trying login:', username);
     
@@ -806,73 +431,27 @@
     console.log('✅ User found:', user.username);
     
     user.balance = parseFloat(user.balance) || 100000000000000000;
+    if (!user.transactions) user.transactions = [];
+    if (!user.stakingHistory) user.stakingHistory = [];
     
     currentUser = user;
     localStorage.setItem('bradicoin_premium_session', JSON.stringify({ id: user.id }));
     
-    loginToAPI(username, password).then(token => {
-      if (token) {
-        console.log('✅ Login na API realizado com sucesso');
-        refreshRealData();
-      } else {
-        console.log('⚠️ Modo offline - sem token JWT');
-      }
-      renderDashboard();
-    });
-    
-    console.log('✅ Login successful! Redirecting to dashboard...');
+    console.log('✅ Login successful!');
     console.log('💰 Balance:', currentUser.balance);
+    console.log('📊 Transactions:', currentUser.transactions.length);
+    console.log('📊 Staking History:', currentUser.stakingHistory.length);
     
-    Promise.all([listAllWallets(), checkAPIConnection()]).then(() => {
-      renderDashboard();
-    });
-    
+    renderDashboard();
     return { success: true };
   }
-
-  // ============================================================
-  // REFRESH REAL DATA
-  // ============================================================
-  async function refreshRealData() {
-    if (!currentUser) return;
-    
-    try {
-      const realData = await getRealBalance(currentUser.walletAddress);
-      if (realData) {
-        currentUser.balance = realData.balance || currentUser.balance;
-        currentUser.staked = realData.staked || 0;
-        currentUser.rewards = realData.rewards || 0;
-        currentUser.syncedWithAPI = realData.exists || false;
-        currentUser.lastSync = new Date().toISOString();
-        saveCurrentUser();
-      }
-      
-      // TRANSAÇÕES SEMPRE LOCAIS (NUNCA CHAMA A API)
-      console.log('📁 Usando dados locais para transações');
-      if (!currentUser.transactions) currentUser.transactions = [];
-      
-      renderDashboard();
-      showStatus(`✅ Dados atualizados! ${isApiOnline ? '(Online)' : '(Offline - dados locais)'}`, 'syncStatus', isApiOnline ? 'success' : 'warning');
-      
-    } catch (error) {
-      console.error('❌ Erro ao sincronizar:', error);
-      showStatus(`⚠️ Usando dados locais`, 'syncStatus', 'warning');
-    }
-  }
   
-  // ============================================================
-  // LOGOUT
-  // ============================================================
   function logout() {
     if (confirm('⚠️ Are you sure you want to logout?')) {
       currentUser = null;
-      apiToken = null;
-      isApiOnline = false;
       localStorage.removeItem('bradicoin_premium_session');
       console.log('🚪 Logout done');
       render();
-    } else {
-      console.log('❌ Logout cancelled');
     }
   }
   
@@ -884,20 +463,14 @@
         const user = users.find(u => u.id === session.id);
         if(user) {
           user.balance = parseFloat(user.balance) || 100000000000000000;
+          if (!user.transactions) user.transactions = [];
+          if (!user.stakingHistory) user.stakingHistory = [];
           currentUser = user;
           console.log('🔑 Session loaded:', currentUser.username);
           console.log('💰 Balance:', currentUser.balance);
-          
-          Promise.all([
-            loginToAPI(currentUser.username, currentUser.password),
-            checkAPIConnection()
-          ]).then(() => {
-            listAllWallets().then(() => {
-              refreshRealData();
-              renderDashboard();
-            });
-          });
-          
+          console.log('📊 Transactions:', currentUser.transactions.length);
+          console.log('📊 Staking History:', currentUser.stakingHistory.length);
+          renderDashboard();
           return true;
         }
       }
@@ -939,8 +512,6 @@
       localStorage.removeItem('bradicoin_premium_session');
       users = [];
       currentUser = null;
-      apiToken = null;
-      isApiOnline = false;
       
       const defaultUser = {
         id: Date.now(),
@@ -951,9 +522,8 @@
         balance: 100000000000000000,
         activeStake: null,
         transactions: [],
-        createdAt: new Date().toISOString(),
-        lastSync: null,
-        syncedWithAPI: false
+        stakingHistory: [],
+        createdAt: new Date().toISOString()
       };
       users.push(defaultUser);
       saveUsers();
@@ -964,20 +534,6 @@
     } else {
       console.log('❌ Delete cancelled');
     }
-  }
-  
-  // ============================================================
-  // TEST API CONNECTION
-  // ============================================================
-  async function testAPIConnection() {
-    const online = await checkAPIConnection();
-    if(online) {
-      alert('✅ Bradicoin API is ONLINE!\n\nStatus: Connected to ' + API_URL);
-      if (currentUser) refreshRealData();
-    } else {
-      alert('⚠️ Bradicoin API is OFFLINE.\n\nUsing local data only.');
-    }
-    if (currentUser) renderDashboard();
   }
   
   // ============================================================
@@ -995,28 +551,47 @@
       minute: '2-digit' 
     });
     
-    currentUser.transactions.unshift({
+    const transaction = {
       id: Date.now(),
+      timestamp: now.getTime(),
       type: type,
       details: details,
       amount: amount,
       address: address,
-      date: dateStr,
-      timestamp: now.getTime()
-    });
+      date: dateStr
+    };
     
-    if(currentUser.transactions.length > 50) {
-      currentUser.transactions.pop();
+    currentUser.transactions.unshift(transaction);
+    
+    if(currentUser.transactions.length > 100) {
+      currentUser.transactions = currentUser.transactions.slice(0, 100);
     }
     
     saveCurrentUser();
     console.log('📝 Transaction added:', type, details);
+    return transaction;
+  }
+  
+  function addStakingHistory(stakeData) {
+    if(!currentUser) return;
+    if(!currentUser.stakingHistory) currentUser.stakingHistory = [];
+    
+    const record = {
+      ...stakeData,
+      timestamp: Date.now(),
+      id: Date.now()
+    };
+    
+    currentUser.stakingHistory.unshift(record);
+    saveCurrentUser();
+    console.log('📝 Staking history added:', record);
+    return record;
   }
   
   // ============================================================
   // SEND BRD
   // ============================================================
-  async function sendBRD(toAddress, amount) {
+  function sendBRD(toAddress, amount) {
     if (!currentUser) {
       showStatus('❌ No user logged in', 'sendStatus', 'error');
       return;
@@ -1045,61 +620,56 @@
       showStatus(`⚠️ Insufficient balance. You have ${formatNumber(userBalance)} BRD`, 'sendStatus', 'error');
       return;
     }
-
-    showStatus('🔍 Verificando endereço de destino...', 'sendStatus', 'info');
-    const destCheck = await verificarEnderecoBlockchain(toAddress);
     
-    if (!destCheck.online) {
-      showStatus('⚠️ API offline. Enviando em modo offline...', 'sendStatus', 'warning');
-    } else if (!destCheck.exists && sendAmount > 1000) {
-      if (!confirm(`⚠️ O endereço ${toAddress.substring(0, 16)}... não foi encontrado na blockchain. Deseja continuar mesmo assim?`)) {
+    // Verificar se o endereço existe localmente
+    const destUser = users.find(u => u.walletAddress === toAddress);
+    if (!destUser && sendAmount > 1000) {
+      if (!confirm(`⚠️ O endereço ${toAddress.substring(0, 16)}... não foi encontrado localmente. Deseja continuar mesmo assim?`)) {
         showStatus('❌ Envio cancelado', 'sendStatus', 'error');
         return;
       }
     }
 
-    showStatus('⏳ Sending transaction to blockchain...', 'sendStatus', 'info');
+    showStatus('⏳ Sending transaction...', 'sendStatus', 'info');
 
     try {
-      if (!apiToken) {
-        await loginToAPI(currentUser.username, currentUser.password);
-      }
-
-      const result = await sendRealBRD(currentUser.walletAddress, toAddress, sendAmount);
-
-      if (result) {
-        const newBalance = result.newBalance !== undefined ? parseFloat(result.newBalance) : (userBalance - sendAmount);
-        currentUser.balance = newBalance;
-        currentUser.syncedWithAPI = true;
-        currentUser.lastSync = new Date().toISOString();
-        
-        addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, -sendAmount, toAddress);
-        saveCurrentUser();
-        await refreshRealData();
-        showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully! (Tx: ${result.txHash || 'confirmado'})`, 'sendStatus', 'success');
-        await listAllWallets();
-      } else {
-        console.log('⚠️ API falhou, usando modo offline');
-        currentUser.balance = userBalance - sendAmount;
-        addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, -sendAmount, toAddress);
-        saveCurrentUser();
-        renderDashboard();
-        showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
-      }
-    } catch (error) {
-      console.error('❌ Send error:', error);
+      // Atualizar saldo do remetente
       currentUser.balance = userBalance - sendAmount;
-      addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}... (offline)`, -sendAmount, toAddress);
+      
+      // Adicionar transação de envio
+      addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, -sendAmount, toAddress);
+      
+      // Se o destinatário existe localmente, atualizar saldo dele
+      if (destUser) {
+        destUser.balance = parseFloat(destUser.balance) + sendAmount;
+        destUser.transactions = destUser.transactions || [];
+        destUser.transactions.unshift({
+          id: Date.now(),
+          timestamp: Date.now(),
+          type: 'RECEIVED',
+          details: `Received ${formatNumber(sendAmount)} BRD from ${currentUser.walletAddress.substring(0, 20)}...`,
+          amount: sendAmount,
+          address: currentUser.walletAddress,
+          date: new Date().toLocaleString('pt-BR')
+        });
+        saveUsers();
+        console.log('✅ Destinatário encontrado localmente, saldo atualizado');
+      }
+      
       saveCurrentUser();
       renderDashboard();
-      showStatus(`✅ ${formatNumber(sendAmount)} BRD sent (offline mode)`, 'sendStatus', 'info');
+      showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully!`, 'sendStatus', 'success');
+      
+    } catch (error) {
+      console.error('❌ Send error:', error);
+      showStatus(`❌ Erro no envio: ${error.message}`, 'sendStatus', 'error');
     }
   }
   
   // ============================================================
-  // CONSULT WALLET ON BRADICHAIN
+  // CONSULT WALLET
   // ============================================================
-  async function consultarWalletBradichain() {
+  function consultarWallet() {
     const address = document.getElementById('searchWalletAddress').value.trim();
     const resultDiv = document.getElementById('searchResult');
     
@@ -1108,66 +678,38 @@
       return;
     }
     
-    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting Bradichain blockchain...</div>';
+    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting local database...</div>';
     resultDiv.classList.add('show');
     
-    try {
-      const realData = await getRealBalance(address);
-      
-      console.log('📡 Consult result:', realData);
-      
-      let balance = 0;
-      let found = false;
-      let username = 'Unknown';
-      let apiConnected = true;
-      let staked = 0;
-      let rewards = 0;
-      
-      if (realData) {
-        balance = realData.balance || 0;
-        found = realData.exists || false;
-        username = realData.username || 'Unknown';
-        staked = realData.staked || 0;
-        rewards = realData.rewards || 0;
-        apiConnected = true;
-        isApiOnline = true;
-      } else {
-        apiConnected = false;
-        isApiOnline = false;
-        const localUser = users.find(u => u.walletAddress === address);
-        if (localUser) {
-          balance = parseFloat(localUser.balance) || 0;
-          found = true;
-          username = localUser.username || 'Unknown';
-        }
-      }
-      
+    const localUser = users.find(u => u.walletAddress === address);
+    
+    if (localUser) {
+      const balance = parseFloat(localUser.balance) || 0;
       const balanceInUSD = balance * BRD_TO_USD;
+      const transactions = localUser.transactions || [];
       
       resultDiv.innerHTML = `
-        <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid ${found ? '#00ff66' : '#ffc800'}; border-radius: 20px; padding: 20px;">
+        <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
             <div>
-              <span class="badge" style="background: ${found ? '#00ff66' : '#ffc800'}; color: #000;">
-                ${found ? '✅ WALLET FOUND' : '⚠️ WALLET NOT FOUND'}
-              </span>
+              <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET FOUND</span>
               <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;">
-                <i class="fas fa-link"></i> Bradichain
+                <i class="fas fa-database"></i> Local Storage
               </span>
-              ${!apiConnected ? '<span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>' : '<span class="badge" style="background: #00ff88; color: #000; margin-left: 10px;">🟢 Online</span>'}
             </div>
             <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
               <i class="fas fa-external-link-alt"></i> View on Explorer
             </button>
           </div>
-          <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${username}</span></div>
+          <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${localUser.username}</span></div>
           <div class="metric-row"><span class="metric-label">📍 Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
           <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
           <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
-          <div class="metric-row"><span class="metric-label">🔒 Staked:</span><span class="metric-value" style="color: #ffc800;">${formatNumber(staked)} BRD</span></div>
-          <div class="metric-row"><span class="metric-label">⭐ Rewards:</span><span class="metric-value" style="color: #66ffcc;">${formatNumber(rewards)} BRD</span></div>
           <div class="metric-row"><span class="metric-label">📊 Exchange Rate:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
-          ${found ? `
+          <div class="metric-row"><span class="metric-label">📝 Transactions:</span><span class="metric-value">${transactions.length}</span></div>
+          ${localUser.activeStake ? `
+            <div class="metric-row"><span class="metric-label">🔒 Active Stake:</span><span class="metric-value" style="color: #ffc800;">${formatNumber(localUser.activeStake.amount)} BRD (${localUser.activeStake.name})</span></div>
+          ` : ''}
           <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
             <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;">
               <i class="fas fa-copy"></i> Copy
@@ -1175,56 +717,23 @@
             <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;">
               <i class="fas fa-paper-plane"></i> Send to this wallet
             </button>
-            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
-              <i class="fas fa-chart-line"></i> View Transactions
-            </button>
           </div>
-          ` : `
-          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,200,0,0.2);">
-            <p style="color: #ffc800; font-size: 12px;">💡 This wallet was not found on the blockchain. Please check the address.</p>
-          </div>
-          `}
         </div>
       `;
-      showStatus(`✅ Consultation completed`, 'searchStatus', 'success');
-      
-    } catch (error) {
-      console.error('❌ Consult error:', error);
-      isApiOnline = false;
-      const localUser = users.find(u => u.walletAddress === address);
-      if (localUser) {
-        const balance = parseFloat(localUser.balance) || 0;
-        const balanceInUSD = balance * BRD_TO_USD;
-        resultDiv.innerHTML = `
-          <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #ffc800; border-radius: 20px; padding: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
-              <div>
-                <span class="badge" style="background: #ffc800; color: #000;">⚠️ LOCAL DATA</span>
-                <span class="badge" style="background: #ff4444; color: #fff; margin-left: 10px;">⚠️ API Offline</span>
-              </div>
-            </div>
-            <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${localUser.username}</span></div>
-            <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #ffc800; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
-            <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,200,0,0.2);">
-              <p style="color: #ffc800; font-size: 11px;">⚠️ Using local data - API offline</p>
-            </div>
-          </div>
-        `;
-        showStatus(`📁 Local data (API offline)`, 'searchStatus', 'warning');
-      } else {
-        resultDiv.innerHTML = `
-          <div style="background: rgba(255,100,100,0.1); border: 2px solid #ff6464; border-radius: 20px; padding: 20px; text-align: center;">
-            <div style="font-size: 48px;">❌</div>
-            <h3 style="color: #ff6464;">Connection Error</h3>
-            <p>Could not connect to Bradicoin API. Wallet not found locally.</p>
-            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">
-              🌐 Open Bradichain Explorer
-            </button>
-          </div>
-        `;
-        showStatus(`❌ Wallet not found`, 'searchStatus', 'error');
-      }
+      showStatus(`✅ Wallet found locally`, 'searchStatus', 'success');
+    } else {
+      resultDiv.innerHTML = `
+        <div style="background: rgba(255,200,0,0.1); border: 2px solid #ffc800; border-radius: 20px; padding: 20px; text-align: center;">
+          <div style="font-size: 48px;">⚠️</div>
+          <h3 style="color: #ffc800;">Wallet Not Found</h3>
+          <p>This address was not found in the local database.</p>
+          <p style="font-size: 12px; margin-top: 10px; color: #888;">💡 Make sure the address starts with "Br" and is correct.</p>
+          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">
+            🌐 Open Bradichain Explorer
+          </button>
+        </div>
+      `;
+      showStatus(`❌ Wallet not found locally`, 'searchStatus', 'error');
     }
   }
   
@@ -1277,7 +786,7 @@
     return parseFloat(amount) * (apr / 100) * years;
   }
   
-  async function doStake(amount, option) {
+  function doStake(amount, option) {
     if(!currentUser) {
       showStatus('❌ No user logged in', 'stakeStatus', 'error');
       return;
@@ -1303,53 +812,43 @@
       return;
     }
     
-    showStatus('⏳ Enviando stake para a blockchain...', 'stakeStatus', 'info');
+    showStatus('⏳ Processing stake...', 'stakeStatus', 'info');
 
     try {
-      // Tenta fazer stake via API
-      const result = await stakeRealBRD(currentUser.walletAddress, stakeAmount, option.duration);
+      currentUser.balance = userBalance - stakeAmount;
+      currentUser.activeStake = {
+        amount: stakeAmount,
+        seconds: option.seconds,
+        name: option.name,
+        apr: option.apr,
+        endTime: Date.now() + (option.seconds * 1000),
+        startTime: Date.now(),
+        txHash: 'local_' + Date.now().toString(36)
+      };
       
-      if (result) {
-        currentUser.balance = userBalance - stakeAmount;
-        currentUser.activeStake = {
-          amount: stakeAmount,
-          seconds: option.seconds,
-          name: option.name,
-          apr: option.apr,
-          endTime: Date.now() + (option.seconds * 1000),
-          startTime: Date.now(),
-          txHash: result.txHash || 'confirmed'
-        };
-        
-        addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, -stakeAmount);
-        saveCurrentUser();
-        await refreshRealData();
-        renderDashboard();
-        showStatus(`✅ ${formatNumber(stakeAmount)} BRD staked in ${option.name}! (Tx: ${result.txHash || 'confirmado'})`, 'stakeStatus', 'success');
-      } else {
-        // Fallback offline
-        console.log('⚠️ API falhou, usando modo offline para stake');
-        currentUser.activeStake = {
-          amount: stakeAmount,
-          seconds: option.seconds,
-          name: option.name,
-          apr: option.apr,
-          endTime: Date.now() + (option.seconds * 1000),
-          startTime: Date.now()
-        };
-        currentUser.balance = userBalance - stakeAmount;
-        addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, -stakeAmount);
-        saveCurrentUser();
-        renderDashboard();
-        showStatus(`✅ ${formatNumber(stakeAmount)} BRD staked in ${option.name}! (offline mode)`, 'stakeStatus', 'success');
-      }
+      // Adicionar ao histórico de staking
+      addStakingHistory({
+        amount: stakeAmount,
+        name: option.name,
+        apr: option.apr,
+        duration: option.duration,
+        seconds: option.seconds,
+        status: 'active',
+        txHash: 'local_' + Date.now().toString(36)
+      });
+      
+      addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, -stakeAmount);
+      saveCurrentUser();
+      renderDashboard();
+      showStatus(`✅ ${formatNumber(stakeAmount)} BRD staked in ${option.name}!`, 'stakeStatus', 'success');
+      
     } catch (error) {
       console.error('❌ Stake error:', error);
       showStatus(`❌ Erro no stake: ${error.message}`, 'stakeStatus', 'error');
     }
   }
   
-  async function doUnstake() {
+  function doUnstake() {
     if(!currentUser || !currentUser.activeStake) {
       showStatus('❌ No active stake', 'stakeStatus', 'error');
       return;
@@ -1369,18 +868,24 @@
       const reward = calcReward(stakeAmount, seconds, apr);
       const totalReturn = stakeAmount + reward;
       
-      // Tenta fazer unstake via API
-      const result = await unstakeRealBRD(currentUser.walletAddress);
-      
       const oldBalance = parseFloat(currentUser.balance);
       currentUser.balance = oldBalance + totalReturn;
+      
+      // Atualizar histórico de staking
+      const stakeRecord = currentUser.stakingHistory?.find(s => 
+        s.amount === stakeAmount && s.name === stakeName && s.status === 'active'
+      );
+      if (stakeRecord) {
+        stakeRecord.status = 'completed';
+        stakeRecord.reward = reward;
+        stakeRecord.completedAt = new Date().toISOString();
+      }
       
       addTransaction('UNSTAKE', `Unstaked ${formatNumber(stakeAmount)} BRD from ${stakeName} (${apr}% APR)`, stakeAmount);
       addTransaction('REWARD', `Reward: ${reward.toFixed(4)} BRD (${apr}% APR)`, reward);
       
       currentUser.activeStake = null;
       saveCurrentUser();
-      await refreshRealData();
       renderDashboard();
       
       showStatus(
@@ -1390,31 +895,8 @@
       );
       
     } catch (error) {
-      // Fallback offline
-      console.log('⚠️ API falhou, usando modo offline para unstake');
-      const stakeAmount = parseFloat(currentUser.activeStake.amount);
-      const seconds = currentUser.activeStake.seconds;
-      const apr = currentUser.activeStake.apr;
-      const stakeName = currentUser.activeStake.name;
-      
-      const reward = calcReward(stakeAmount, seconds, apr);
-      const totalReturn = stakeAmount + reward;
-      
-      const oldBalance = parseFloat(currentUser.balance);
-      currentUser.balance = oldBalance + totalReturn;
-      
-      addTransaction('UNSTAKE', `Unstaked ${formatNumber(stakeAmount)} BRD from ${stakeName} (${apr}% APR)`, stakeAmount);
-      addTransaction('REWARD', `Reward: ${reward.toFixed(4)} BRD (${apr}% APR)`, reward);
-      
-      currentUser.activeStake = null;
-      saveCurrentUser();
-      renderDashboard();
-      
-      showStatus(
-        `✅ Unstaked! ${formatNumber(totalReturn)} BRD added (${reward.toFixed(4)} reward) | New balance: ${formatNumber(currentUser.balance)} BRD (offline)`, 
-        'stakeStatus', 
-        'success'
-      );
+      console.error('❌ Unstake error:', error);
+      showStatus(`❌ Erro no unstake: ${error.message}`, 'stakeStatus', 'error');
     }
   }
   
@@ -1471,71 +953,6 @@
   }
   
   // ============================================================
-  // SYNC WITH BLOCKCHAIN - APENAS SALDO (SEM TRANSAÇÕES)
-  // ============================================================
-  async function syncWalletWithBlockchain() {
-    if (!currentUser) {
-      showStatus('❌ No user logged in', 'syncStatus', 'error');
-      return;
-    }
-
-    showStatus('🔄 Sincronizando saldo com a blockchain...', 'syncStatus', 'info');
-
-    try {
-      // Tenta obter token JWT se não tiver
-      if (!apiToken) {
-        await loginToAPI(currentUser.username, currentUser.password);
-      }
-
-      if (apiToken) {
-        // Busca apenas o saldo na API
-        const response = await fetch(`${API_URL}/api/balance/${currentUser.walletAddress}`, {
-          headers: {
-            'Authorization': `Bearer ${apiToken}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.success && data.data) {
-            const apiBalance = parseFloat(data.data.balance) || 0;
-            const currentBalance = parseFloat(currentUser.balance);
-            
-            if (apiBalance > currentBalance) {
-              currentUser.balance = apiBalance;
-              currentUser.lastSync = new Date().toISOString();
-              currentUser.syncedWithAPI = true;
-              saveCurrentUser();
-              renderDashboard();
-              showStatus(`✅ Sincronizado! Saldo: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
-              console.log('💰 Saldo atualizado da blockchain:', apiBalance);
-            } else if (apiBalance < currentBalance) {
-              showStatus(`ℹ️ Saldo local (${formatNumber(currentBalance)} BRD) é maior. Mantendo local.`, 'syncStatus', 'info');
-            } else {
-              showStatus(`✅ Saldo atualizado: ${formatNumber(apiBalance)} BRD`, 'syncStatus', 'success');
-            }
-            isApiOnline = true;
-          }
-        } else {
-          showStatus('⚠️ API offline. Usando dados locais.', 'syncStatus', 'warning');
-          isApiOnline = false;
-        }
-      } else {
-        showStatus('⚠️ API offline. Usando dados locais.', 'syncStatus', 'warning');
-        isApiOnline = false;
-      }
-      
-      // TRANSAÇÕES SEMPRE LOCAIS
-      console.log('📁 Transações locais carregadas');
-      renderDashboard();
-      
-    } catch (error) {
-      showStatus(`❌ Erro na sincronização: ${error.message}`, 'syncStatus', 'error');
-      isApiOnline = false;
-    }
-  }
-  
-  // ============================================================
   // RENDER FUNCTIONS
   // ============================================================
   function renderAuth() {
@@ -1588,8 +1005,11 @@
           <hr class="divider">
           
           <div class="auth-buttons">
-            <button id="testApiBtn" class="btn btn-test-api btn-sm"><i class="fas fa-plug"></i> Test API Connection</button>
             <button id="deleteUsersBtn" class="btn btn-delete-users btn-sm"><i class="fas fa-trash-alt"></i> Delete All Users</button>
+          </div>
+          
+          <div style="margin-top: 12px; font-size: 10px; color: #666;">
+            <i class="fas fa-database"></i> Local Storage Only
           </div>
         </div>
       </div>
@@ -1611,7 +1031,7 @@
           
           const result = loginUser(username, password);
           if(result.success) {
-            // Login successful - dashboard already rendered
+            // Login successful
           } else {
             loginError = result.message;
             renderAuth();
@@ -1630,7 +1050,7 @@
     } else {
       const regBtn = document.getElementById('doReg');
       if(regBtn) {
-        regBtn.onclick = async function() {
+        regBtn.onclick = function() {
           const user = document.getElementById('regUser').value;
           const pass = document.getElementById('regPass').value;
           const confirm = document.getElementById('regConfirm').value;
@@ -1639,7 +1059,7 @@
             renderAuth(); 
             return; 
           }
-          const result = await registerUser(user, pass);
+          const result = registerUser(user, pass);
           if(result.success) { 
             showLogin = true; 
             loginError = `✅ Account created! Balance: ${formatNumber(result.balance)} BRD`; 
@@ -1660,9 +1080,6 @@
         };
       }
     }
-    
-    const testBtn = document.getElementById('testApiBtn');
-    if(testBtn) testBtn.onclick = testAPIConnection;
     
     const deleteBtn = document.getElementById('deleteUsersBtn');
     if(deleteBtn) deleteBtn.onclick = deleteAllUsers;
@@ -1690,10 +1107,6 @@
     
     const userBalance = parseFloat(currentUser.balance);
     const userBalanceUSD = userBalance * BRD_TO_USD;
-    
-    const statusClass = isApiOnline ? 'online' : 'offline';
-    const statusText = isApiOnline ? '🟢 Online' : '🔴 Offline';
-    const statusColor = isApiOnline ? '#00ff88' : '#ff6666';
     
     let stakeHtml = `<div style="text-align: center; padding: 30px; color: #888;">💎 No active stake</div>`;
     if(activeStake) {
@@ -1724,7 +1137,7 @@
     `;
     }).join('');
     
-    // TRANSAÇÕES SEMPRE LOCAIS
+    // Transações do usuário
     const transactions = currentUser.transactions || [];
     const historyHtml = transactions.length === 0 
       ? '<tr><td colspan="4" style="text-align: center; padding: 40px;">✨ No transactions yet</td></tr>'
@@ -1742,8 +1155,24 @@
       `;
       }).join('');
     
-    const walletOptions = allWallets.map(w => 
-      `<option value="${w.address}">${w.username} (${w.address.substring(0, 16)}...) - ${formatNumber(w.balance)} BRD</option>`
+    // Histórico de staking
+    const stakingHistory = currentUser.stakingHistory || [];
+    const stakingHistoryHtml = stakingHistory.length === 0
+      ? '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #888;">No staking history</td></tr>'
+      : stakingHistory.slice(0, 10).map(function(s) {
+        return `
+        <tr>
+          <td style="font-size: 10px;">${s.timestamp ? new Date(s.timestamp).toLocaleString('pt-BR') : '--'}</td>
+          <td>${s.name || '--'}</td>
+          <td>${formatNumber(s.amount)} BRD</td>
+          <td><span class="badge ${s.status === 'active' ? 'badge-stake' : 'badge-received'}">${s.status || '--'}</span></td>
+        </tr>
+      `;
+      }).join('');
+    
+    // Lista de wallets para o select
+    const walletOptions = users.map(u => 
+      `<option value="${u.walletAddress}">${u.username} (${u.walletAddress.substring(0, 16)}...) - ${formatNumber(u.balance)} BRD</option>`
     ).join('');
     
     const html = `
@@ -1754,11 +1183,8 @@
         </div>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
-          <span class="network-status ${statusClass}" style="color: ${statusColor};">
-            ${statusText}
-          </span>
-          ${isApiOnline ? `<span style="font-size: 10px; color: #00ff88;">✅ API Connected</span>` : `<span style="font-size: 10px; color: #ff6666;">⚠️ API Offline</span>`}
-          <button id="syncBtn" class="btn btn-primary" style="padding: 8px 16px; font-size: 11px;"><i class="fas fa-sync-alt"></i> Sync</button>
+          <span class="storage-indicator"><i class="fas fa-database"></i> Local Storage</span>
+          <span style="font-size: 10px; color: #00ff88;">✅ ${users.length} users</span>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
       </div>
@@ -1782,7 +1208,7 @@
       </div>
       
       <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
-        <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-link"></i> Bradichain</span></div>
+        <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-database"></i> Local Storage</span></div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           <input type="text" id="searchWalletAddress" class="input" placeholder="Bradicoin address (Br...)" style="flex: 1;">
           <button id="consultWalletBtn" class="btn btn-bradichain"><i class="fas fa-search"></i> Consult</button>
@@ -1798,7 +1224,7 @@
         <div class="balance-label" style="margin-top: 15px;">💵 MY BALANCE IN USD</div>
         <div class="balance-amount" style="font-size: 2rem;">$${formatNumber(userBalanceUSD)} <span style="font-size: 0.9rem;">USD</span></div>
         <div style="font-size: 12px; margin-top: 12px;">📊 1 BRD = $${BRD_TO_USD} USD</div>
-        ${isApiOnline ? '<div style="font-size: 11px; color: #00ff88; margin-top: 5px;">✅ Sincronizado com a blockchain</div>' : '<div style="font-size: 11px; color: #ffaa66; margin-top: 5px;">⚠️ Dados locais (offline)</div>'}
+        <div style="font-size: 11px; color: #00ccff; margin-top: 5px;">✅ Dados salvos localmente</div>
         <div id="syncStatus" class="status-msg" style="margin-top: 12px;"></div>
       </div>
       
@@ -1817,8 +1243,8 @@
             <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 SEED PHRASE</div>
             <div style="font-family: monospace; font-size: 9px; word-break: break-all;">${currentUser.seedPhrase}</div>
           </div>
-          <div style="margin-top: 12px; font-size: 11px; color: ${currentUser.syncedWithAPI ? '#00ff88' : '#ffaa66'};">
-            ${currentUser.syncedWithAPI ? '✅ Sincronizado com a blockchain' : '⚠️ Dados locais (faça sync)'}
+          <div style="margin-top: 12px; font-size: 11px; color: #00ccff;">
+            ✅ Dados salvos no localStorage
           </div>
         </div>
         
@@ -1831,6 +1257,14 @@
           <div class="card-header" style="margin-top: 10px;"><i class="fas fa-chart-line"></i> Active Stake</div>
           ${stakeHtml}
           <button id="unstakeBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">🔓 Unstake & Claim</button>
+          <hr style="margin: 16px 0;">
+          <div class="card-header" style="font-size: 1rem;"><i class="fas fa-history"></i> Staking History</div>
+          <div class="history-container" style="max-height: 150px;">
+            <table class="history-table">
+              <thead><tr><th>Date</th><th>Pool</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>${stakingHistoryHtml}</tbody>
+            </table>
+          </div>
         </div>
         
         <div class="glass-card">
@@ -1840,7 +1274,7 @@
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-paper-plane" style="color: #ffd700;"></i>
               <span style="color: #ffd700; font-weight: bold;">SEND BRD</span>
-              ${isApiOnline ? '<span style="font-size: 10px; color: #00ff88; margin-left: auto;">🟢 Online</span>' : '<span style="font-size: 10px; color: #ff6666; margin-left: auto;">🔴 Offline</span>'}
+              <span style="font-size: 10px; color: #00ccff; margin-left: auto;"><i class="fas fa-database"></i> Local</span>
             </div>
             
             <div style="margin-bottom: 12px;">
@@ -1892,24 +1326,27 @@
       </div>
       
       <div class="glass-card" style="padding: 24px;">
-        <div class="card-header"><i class="fas fa-history"></i> Transaction History</div>
+        <div class="card-header"><i class="fas fa-history"></i> Transaction History <span style="font-size: 10px; color: #00ccff;">📁 Local Storage</span></div>
         <div class="history-container">
           <table class="history-table">
             <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
             <tbody>${historyHtml}</tbody>
           </table>
         </div>
+        <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #888;">
+          ${transactions.length} transactions saved locally
+        </div>
       </div>
       
       <footer>
         <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 1 BRD = $10 USD | Reserve: 100.000.000.000.000.000 BRD | 130% APR | Powered by Bradichain
+        <br><span style="font-size: 9px; color: #666;"><i class="fas fa-database"></i> Local Storage Mode - No MongoDB Required</span>
       </footer>
     `;
     
     document.getElementById('app').innerHTML = html;
     
     document.getElementById('logoutBtn').onclick = logout;
-    document.getElementById('syncBtn').onclick = syncWalletWithBlockchain;
     document.getElementById('copyAddressBtn').onclick = function() {
       copyToClipboardManual(currentUser.walletAddress);
     };
@@ -1936,7 +1373,7 @@
       simulateReceive(amount);
     };
     document.getElementById('unstakeBtn').onclick = doUnstake;
-    document.getElementById('consultWalletBtn').onclick = consultarWalletBradichain;
+    document.getElementById('consultWalletBtn').onclick = consultarWallet;
     document.getElementById('openExplorerBtn').onclick = function() {
       const addr = document.getElementById('searchWalletAddress').value.trim();
       if(addr) {
@@ -1980,6 +1417,8 @@
     if(currentUser) {
       console.log('✅ User logged in, rendering dashboard');
       console.log('💰 Balance:', currentUser.balance);
+      console.log('📊 Transactions:', currentUser.transactions?.length || 0);
+      console.log('📊 Staking History:', currentUser.stakingHistory?.length || 0);
     } else {
       console.log('❌ No user logged in, rendering login');
       renderAuth();
@@ -1996,11 +1435,11 @@
   }
   
   console.log('🚀 Bradicoin Reserve Fund loaded!');
-  console.log('📡 API URL:', API_URL);
   console.log('🌐 Bradichain URL:', BRADICHAIN_URL);
   console.log('💲 1 BRD = $' + BRD_TO_USD + ' USD');
   console.log('💎 Reserve: ' + formatNumber(RESERVE_SUPPLY_BRD) + ' BRD');
   console.log('👥 Max users: ' + MAX_USERS);
+  console.log('📁 Storage: LOCAL STORAGE (No MongoDB)');
 
 </script>
 </body>
