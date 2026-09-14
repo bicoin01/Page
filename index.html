@@ -255,11 +255,12 @@
   // ============================================================
   // CONFIGURATION
   // ============================================================
+  const API_URL = 'https://SEU-BACKEND.onrender.com';  // ← TROQUE PELA SUA URL
   const BRADICHAIN_URL = 'https://www.bradichain.com';
   const BRD_TO_USD = 10;
-  const RESERVE_SUPPLY_BRD = 100000000000000000;
+  const RESERVE_SUPPLY_BRD = 98000000000000;
   const RESERVE_SUPPLY_USD = RESERVE_SUPPLY_BRD * BRD_TO_USD;
-  const MAX_USERS = 2;
+  const MAX_USERS = 999999;
   
   const APR_2MIN = 130;
   const APR_30MIN = 130;
@@ -284,7 +285,53 @@
     if (num === undefined || num === null || isNaN(num)) return '0';
     return Number(num).toLocaleString('en-US', { maximumFractionDigits: 4 });
   }
-  
+
+  // ============================================================
+// API HELPER — faz fetch com JWT automático
+// ============================================================
+function getToken() {
+  return localStorage.getItem('bradicoin_token');
+}
+
+function setToken(token) {
+  localStorage.setItem('bradicoin_token', token);
+}
+
+function clearToken() {
+  localStorage.removeItem('bradicoin_token');
+}
+
+async function apiFetch(path, options = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (e) {
+    // resposta sem JSON
+  }
+
+  if (!res.ok) {
+    const msg = data?.error || data?.message || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  return data;
+}
+
   // ============================================================
   // STORAGE FUNCTIONS - PERSISTÊNCIA LOCAL
   // ============================================================
@@ -446,40 +493,148 @@
     return { success: true };
   }
   
-  function logout() {
-    if (confirm('⚠️ Are you sure you want to logout?')) {
-      currentUser = null;
-      localStorage.removeItem('bradicoin_premium_session');
-      console.log('🚪 Logout done');
-      render();
+    // ============================================================
+  // CARREGA DADOS REAIS DO BACKEND
+  // ============================================================
+  async function loadDashboardData() {
+    if (!currentUser) return;
+
+    try {
+      // Saldo
+      try {
+        const balRes = await apiFetch('/api/v1/wallet/balance');
+        if (balRes.success) {
+          currentUser.balance = balRes.data.total || 0;
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar saldo:', e.message);
+        currentUser.balance = 0;
+      }
+
+      // Histórico
+      try {
+        const histRes = await apiFetch('/api/v1/wallet/history?limit=50');
+        if (histRes.success) {
+          currentUser.transactions = (histRes.data.transactions || []).map(t => ({
+            date: new Date(t.createdAt).toLocaleString('pt-BR'),
+            type: (t.type || '').toUpperCase(),
+            details: `${t.direction === 'out' ? 'Enviado para' : 'Recebido de'} ${(t.from || t.to || '').substring(0, 20)}...`,
+            amount: t.direction === 'out' ? -t.amount : t.amount
+          }));
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar histórico:', e.message);
+      }
+
+      // Stakes
+      try {
+        const stakeRes = await apiFetch('/api/v1/reserve-staking/stakes?limit=20');
+        if (stakeRes.success) {
+          currentUser.stakingHistory = (stakeRes.data.stakes || []).map(s => ({
+            timestamp: new Date(s.createdAt).getTime(),
+            name: s.pool,
+            amount: s.amount,
+            status: s.status,
+            reward: s.reward
+          }));
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar stakes:', e.message);
+      }
+
+      // Stake ativo
+      try {
+        const activeRes = await apiFetch('/api/v1/reserve-staking/active');
+        if (activeRes.success && activeRes.data.active) {
+          const a = activeRes.data.active;
+          currentUser.activeStake = {
+            id: a.id,
+            amount: a.amount,
+            seconds: a.seconds,
+            name: a.pool,
+            apr: a.apr,
+            startTime: new Date(a.startTime).getTime(),
+            endTime: new Date(a.endTime).getTime(),
+            txHash: a.txHash
+          };
+        } else {
+          currentUser.activeStake = null;
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar stake ativo:', e.message);
+        currentUser.activeStake = null;
+      }
+
+      // Seed phrase (só gera localmente, backend não retorna)
+      if (!currentUser.seedPhrase) {
+        currentUser.seedPhrase = generateSeedPhrase();
+      }
+
+    } catch (err) {
+      console.error('Erro geral ao carregar dados:', err);
     }
   }
-  
-  function loadSession() {
+
+  // ============================================================
+  // CRIA CARTEIRA PARA O USUÁRIO ATUAL
+  // ============================================================
+  async function createWalletForCurrentUser() {
+    if (!currentUser) return;
+
+    // Gera endereço Brd... no frontend
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let random = '';
+    for (let i = 0; i < 38; i++) {
+      random += chars[Math.floor(Math.random() * chars.length)];
+    }
+    const address = 'Brd' + random;
+
     try {
-      const saved = localStorage.getItem('bradicoin_premium_session');
-      if(saved) {
-        const session = JSON.parse(saved);
-        const user = users.find(u => u.id === session.id);
-        if(user) {
-          user.balance = parseFloat(user.balance) || 100000000000000000;
-          if (!user.transactions) user.transactions = [];
-          if (!user.stakingHistory) user.stakingHistory = [];
-          currentUser = user;
-          console.log('🔑 Session loaded:', currentUser.username);
-          console.log('💰 Balance:', currentUser.balance);
-          console.log('📊 Transactions:', currentUser.transactions.length);
-          console.log('📊 Staking History:', currentUser.stakingHistory.length);
-          renderDashboard();
-          return true;
+      const result = await apiFetch('/api/v1/wallet/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          address,
+          username: currentUser.username
+        })
+      });
+
+      if (result.success) {
+        currentUser.walletAddress = result.data.wallet.address;
+        console.log('✅ Carteira criada:', currentUser.walletAddress);
+      }
+    } catch (err) {
+      console.error('❌ Erro ao criar carteira:', err.message);
+      // Se já tem carteira (409), tenta recuperar
+      if (err.message.includes('já tem uma carteira') || err.message.includes('já está em uso')) {
+        try {
+          const meRes = await apiFetch('/api/v1/auth/me');
+          currentUser.walletAddress = meRes.data.user.walletAddress;
+        } catch (e) {
+          console.error('Não foi possível recuperar carteira:', e.message);
         }
       }
-    } catch(e) {
-      console.error('❌ Session load error:', e);
+      throw err;
     }
-    return false;
   }
-  
+
+  // ============================================================
+  // LOGOUT REAL
+  // ============================================================
+  async function logout() {
+    if (!confirm('⚠️ Are you sure you want to logout?')) return;
+
+    try {
+      await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // ignora erro de logout
+    }
+
+    clearToken();
+    currentUser = null;
+    showLogin = true;
+    loginError = '';
+    renderAuth();
+  }
   // ============================================================
   // DELETE ALL USERS
   // ============================================================
@@ -591,78 +746,84 @@
   // ============================================================
   // SEND BRD
   // ============================================================
-  function sendBRD(toAddress, amount) {
+  async function sendBRD(toAddress, amount) {
     if (!currentUser) {
       showStatus('❌ No user logged in', 'sendStatus', 'error');
       return;
     }
-    
-    if (!toAddress || toAddress.trim() === '') {
-      showStatus('📍 Enter destination address', 'sendStatus', 'error');
+
+    if (!toAddress || !toAddress.startsWith('Br')) {
+      showStatus('⚠️ Endereço inválido. Deve começar com "Br"', 'sendStatus', 'error');
       return;
     }
-    
-    if (!toAddress.startsWith('Br')) {
-      showStatus('⚠️ Invalid address. Must start with "Br"', 'sendStatus', 'error');
-      return;
-    }
-    
+
     const sendAmount = parseFloat(amount);
     if (isNaN(sendAmount) || sendAmount <= 0) {
-      showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
+      showStatus('💰 Informe um valor válido', 'sendStatus', 'error');
       return;
-    }
-    
-    const userBalance = parseFloat(currentUser.balance);
-    console.log('💰 Balance check:', { userBalance, sendAmount });
-    
-    if (sendAmount > userBalance) {
-      showStatus(`⚠️ Insufficient balance. You have ${formatNumber(userBalance)} BRD`, 'sendStatus', 'error');
-      return;
-    }
-    
-    // Verificar se o endereço existe localmente
-    const destUser = users.find(u => u.walletAddress === toAddress);
-    if (!destUser && sendAmount > 1000) {
-      if (!confirm(`⚠️ O endereço ${toAddress.substring(0, 16)}... não foi encontrado localmente. Deseja continuar mesmo assim?`)) {
-        showStatus('❌ Envio cancelado', 'sendStatus', 'error');
-        return;
-      }
     }
 
-    showStatus('⏳ Sending transaction...', 'sendStatus', 'info');
+    showStatus('⏳ Enviando transação...', 'sendStatus', 'info');
 
     try {
-      // Atualizar saldo do remetente
-      currentUser.balance = userBalance - sendAmount;
-      
-      // Adicionar transação de envio
-      addTransaction('SENT', `Sent ${formatNumber(sendAmount)} BRD to ${toAddress.substring(0, 20)}...`, -sendAmount, toAddress);
-      
-      // Se o destinatário existe localmente, atualizar saldo dele
-      if (destUser) {
-        destUser.balance = parseFloat(destUser.balance) + sendAmount;
-        destUser.transactions = destUser.transactions || [];
-        destUser.transactions.unshift({
-          id: Date.now(),
-          timestamp: Date.now(),
-          type: 'RECEIVED',
-          details: `Received ${formatNumber(sendAmount)} BRD from ${currentUser.walletAddress.substring(0, 20)}...`,
-          amount: sendAmount,
-          address: currentUser.walletAddress,
-          date: new Date().toLocaleString('pt-BR')
-        });
-        saveUsers();
-        console.log('✅ Destinatário encontrado localmente, saldo atualizado');
-      }
-      
-      saveCurrentUser();
+      const result = await apiFetch('/api/v1/wallet/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: toAddress,
+          amount: sendAmount
+        })
+      });
+
+      showStatus(
+        `✅ ${formatNumber(sendAmount)} BRD enviado! Tx: ${result.data.txId.substring(0, 16)}...`,
+        'sendStatus',
+        'success'
+      );
+
+      await loadDashboardData();
       renderDashboard();
-      showStatus(`✅ ${formatNumber(sendAmount)} BRD sent successfully!`, 'sendStatus', 'success');
-      
-    } catch (error) {
-      console.error('❌ Send error:', error);
-      showStatus(`❌ Erro no envio: ${error.message}`, 'sendStatus', 'error');
+    } catch (err) {
+      console.error('❌ Send error:', err);
+      showStatus(`❌ ${err.message}`, 'sendStatus', 'error');
+    }
+  }
+
+  // ============================================================
+  // ENVIAR DO FUNDO DE RESERVA
+  // ============================================================
+  async function sendFromReserve(toAddress, amount) {
+    const sendAmount = parseFloat(amount);
+    if (!toAddress || !toAddress.startsWith('Br')) {
+      showStatus('⚠️ Endereço inválido', 'reserveStatus', 'error');
+      return;
+    }
+    if (isNaN(sendAmount) || sendAmount <= 0) {
+      showStatus('💰 Valor inválido', 'reserveStatus', 'error');
+      return;
+    }
+
+    showStatus('⏳ Enviando do Fundo de Reserva...', 'reserveStatus', 'info');
+
+    try {
+      await apiFetch('/api/v1/reserve/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: toAddress,
+          amount: sendAmount
+        })
+      });
+
+      showStatus(
+        `✅ ${formatNumber(sendAmount)} BRD enviado do Fundo! (auto-reposto)`,
+        'reserveStatus',
+        'success'
+      );
+
+      await loadDashboardData();
+      renderDashboard();
+    } catch (err) {
+      console.error('❌ Reserve send error:', err);
+      showStatus(`❌ ${err.message}`, 'reserveStatus', 'error');
     }
   }
   
@@ -786,117 +947,77 @@
     return parseFloat(amount) * (apr / 100) * years;
   }
   
-  function doStake(amount, option) {
-    if(!currentUser) {
+    async function doStake(amount, option) {
+    if (!currentUser) {
       showStatus('❌ No user logged in', 'stakeStatus', 'error');
       return;
     }
-    
+
     const stakeAmount = parseFloat(amount);
-    const userBalance = parseFloat(currentUser.balance);
-    
-    console.log('💰 Staking check:', { userBalance, stakeAmount, option });
-    
-    if(isNaN(stakeAmount) || stakeAmount <= 0) {
+    if (isNaN(stakeAmount) || stakeAmount <= 0) {
       showStatus('💰 Enter a valid amount', 'stakeStatus', 'error');
       return;
     }
-    
-    if(stakeAmount > userBalance) {
-      showStatus(`⚠️ Insufficient balance. You have ${formatNumber(userBalance)} BRD`, 'stakeStatus', 'error');
-      return;
-    }
-    
-    if(stakeAmount < option.minStake) {
+
+    if (stakeAmount < option.minStake) {
       showStatus(`⚠️ Minimum ${option.minStake} BRD required`, 'stakeStatus', 'error');
       return;
     }
-    
+
+    const poolKeyMap = {
+      '2 Minutes': '2min',
+      '30 Minutes': '30min',
+      '1 Hour': '1h',
+      '1 Day': '1d'
+    };
+
     showStatus('⏳ Processing stake...', 'stakeStatus', 'info');
 
     try {
-      currentUser.balance = userBalance - stakeAmount;
-      currentUser.activeStake = {
-        amount: stakeAmount,
-        seconds: option.seconds,
-        name: option.name,
-        apr: option.apr,
-        endTime: Date.now() + (option.seconds * 1000),
-        startTime: Date.now(),
-        txHash: 'local_' + Date.now().toString(36)
-      };
-      
-      // Adicionar ao histórico de staking
-      addStakingHistory({
-        amount: stakeAmount,
-        name: option.name,
-        apr: option.apr,
-        duration: option.duration,
-        seconds: option.seconds,
-        status: 'active',
-        txHash: 'local_' + Date.now().toString(36)
+      await apiFetch('/api/v1/reserve-staking/stake', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: stakeAmount,
+          poolKey: poolKeyMap[option.name]
+        })
       });
-      
-      addTransaction('STAKE', `Staked ${formatNumber(stakeAmount)} BRD in ${option.name} (${option.apr}% APR)`, -stakeAmount);
-      saveCurrentUser();
-      renderDashboard();
+
       showStatus(`✅ ${formatNumber(stakeAmount)} BRD staked in ${option.name}!`, 'stakeStatus', 'success');
-      
-    } catch (error) {
-      console.error('❌ Stake error:', error);
-      showStatus(`❌ Erro no stake: ${error.message}`, 'stakeStatus', 'error');
+      await loadDashboardData();
+      renderDashboard();
+    } catch (err) {
+      console.error('❌ Stake error:', err);
+      showStatus(`❌ ${err.message}`, 'stakeStatus', 'error');
     }
   }
   
-  function doUnstake() {
-    if(!currentUser || !currentUser.activeStake) {
+  async function doUnstake() {
+    if (!currentUser || !currentUser.activeStake) {
       showStatus('❌ No active stake', 'stakeStatus', 'error');
       return;
     }
-    
-    if(Date.now() < currentUser.activeStake.endTime) {
-      showStatus('⏳ Stake still locked!', 'stakeStatus', 'error');
-      return;
-    }
-    
+
+    showStatus('⏳ Processing unstake...', 'stakeStatus', 'info');
+
     try {
-      const stakeAmount = parseFloat(currentUser.activeStake.amount);
-      const seconds = currentUser.activeStake.seconds;
-      const apr = currentUser.activeStake.apr;
-      const stakeName = currentUser.activeStake.name;
-      
-      const reward = calcReward(stakeAmount, seconds, apr);
-      const totalReturn = stakeAmount + reward;
-      
-      const oldBalance = parseFloat(currentUser.balance);
-      currentUser.balance = oldBalance + totalReturn;
-      
-      // Atualizar histórico de staking
-      const stakeRecord = currentUser.stakingHistory?.find(s => 
-        s.amount === stakeAmount && s.name === stakeName && s.status === 'active'
-      );
-      if (stakeRecord) {
-        stakeRecord.status = 'completed';
-        stakeRecord.reward = reward;
-        stakeRecord.completedAt = new Date().toISOString();
-      }
-      
-      addTransaction('UNSTAKE', `Unstaked ${formatNumber(stakeAmount)} BRD from ${stakeName} (${apr}% APR)`, stakeAmount);
-      addTransaction('REWARD', `Reward: ${reward.toFixed(4)} BRD (${apr}% APR)`, reward);
-      
-      currentUser.activeStake = null;
-      saveCurrentUser();
-      renderDashboard();
-      
+      const result = await apiFetch('/api/v1/reserve-staking/unstake', {
+        method: 'POST'
+      });
+
+      const reward = result.data.reward || 0;
+      const totalReturn = result.data.totalReturn || 0;
+
       showStatus(
-        `✅ Unstaked! ${formatNumber(totalReturn)} BRD added (${reward.toFixed(4)} reward) | New balance: ${formatNumber(currentUser.balance)} BRD`, 
-        'stakeStatus', 
+        `✅ Unstaked! ${formatNumber(totalReturn)} BRD creditado (${reward.toFixed(4)} de recompensa)`,
+        'stakeStatus',
         'success'
       );
-      
-    } catch (error) {
-      console.error('❌ Unstake error:', error);
-      showStatus(`❌ Erro no unstake: ${error.message}`, 'stakeStatus', 'error');
+
+      await loadDashboardData();
+      renderDashboard();
+    } catch (err) {
+      console.error('❌ Unstake error:', err);
+      showStatus(`❌ ${err.message}`, 'stakeStatus', 'error');
     }
   }
   
@@ -956,8 +1077,6 @@
   // RENDER FUNCTIONS
   // ============================================================
   function renderAuth() {
-    const isLimitReached = users.length >= MAX_USERS;
-    
     const html = `
       <div style="display: flex; justify-content: center; align-items: center; min-height: 80vh;">
         <div class="glass-card" style="max-width: 520px; width: 100%; padding: 40px; text-align: center;">
@@ -973,116 +1092,154 @@
             <p style="color: #66ff66; font-size: 11px; margin-top: 8px;">📊 1 BRD = $${BRD_TO_USD} USD</p>
           </div>
           
-          <p style="color: #ffaa66; font-size: 11px; margin-bottom: 20px;">👥 Users: ${users.length}/${MAX_USERS} registered</p>
-          
-          ${isLimitReached && showLogin ? `
-            <div class="user-limit-msg">
-              ⚠️ Número de usuário limitado para dois
-            </div>
-          ` : ''}
-          
           ${showLogin ? `
-            <input type="text" id="loginUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
+            <input type="email" id="loginEmail" class="input" placeholder="Email" style="margin-bottom: 16px;">
             <input type="password" id="loginPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
             <div id="loginMsg" class="status-msg status-error" style="margin-bottom: 16px;">${loginError}</div>
             <button id="doLogin" class="btn btn-primary" style="width: 100%;">🔐 Sign In</button>
             <p style="margin-top: 24px; font-size: 13px;">No account? <a href="#" id="switchReg" style="color: #00f2ff;">Create Account</a></p>
           ` : `
-            ${isLimitReached ? `
-              <div class="user-limit-msg">
-                ⚠️ Número de usuário limitado para dois - Cannot create new accounts
-              </div>
-            ` : `
-              <input type="text" id="regUser" class="input" placeholder="Username" style="margin-bottom: 16px;">
-              <input type="password" id="regPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
-              <input type="password" id="regConfirm" class="input" placeholder="Confirm Password" style="margin-bottom: 16px;">
-              <div id="regMsg" class="status-msg status-error" style="margin-bottom: 16px;">${regError}</div>
-              <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
-            `}
+            <input type="email" id="regEmail" class="input" placeholder="Email" style="margin-bottom: 16px;">
+            <input type="text" id="regUser" class="input" placeholder="Username (3-30 chars)" style="margin-bottom: 16px;">
+            <input type="password" id="regPass" class="input" placeholder="Password (min 6 chars)" style="margin-bottom: 16px;">
+            <input type="password" id="regConfirm" class="input" placeholder="Confirm Password" style="margin-bottom: 16px;">
+            <div id="regMsg" class="status-msg status-error" style="margin-bottom: 16px;">${regError}</div>
+            <button id="doReg" class="btn btn-primary" style="width: 100%;">📝 Register</button>
             <p style="margin-top: 24px; font-size: 13px;">Already have an account? <a href="#" id="switchLogin" style="color: #00f2ff;">Sign In</a></p>
           `}
           
-          <hr class="divider">
-          
-          <div class="auth-buttons">
-            <button id="deleteUsersBtn" class="btn btn-delete-users btn-sm"><i class="fas fa-trash-alt"></i> Delete All Users</button>
-          </div>
-          
-          <div style="margin-top: 12px; font-size: 10px; color: #666;">
-            <i class="fas fa-database"></i> Local Storage Only
+          <div style="margin-top: 16px; font-size: 10px; color: #00ccff;">
+            <i class="fas fa-server"></i> ${API_URL}
           </div>
         </div>
       </div>
     `;
     document.getElementById('app').innerHTML = html;
-    
-    if(showLogin) {
+
+    if (showLogin) {
       const loginBtn = document.getElementById('doLogin');
-      if(loginBtn) {
-        loginBtn.onclick = function() {
-          const username = document.getElementById('loginUser').value;
+      if (loginBtn) {
+        loginBtn.onclick = async function () {
+          const email = document.getElementById('loginEmail').value.trim();
           const password = document.getElementById('loginPass').value;
-          
-          if(!username || !password) {
-            loginError = '❌ Enter username and password';
+
+          if (!email || !password) {
+            loginError = '❌ Enter email and password';
             renderAuth();
             return;
           }
-          
-          const result = loginUser(username, password);
-          if(result.success) {
-            // Login successful
-          } else {
-            loginError = result.message;
+
+          loginBtn.disabled = true;
+          loginBtn.innerHTML = '⏳ Logging in...';
+
+          try {
+            const result = await apiFetch('/api/v1/auth/login', {
+              method: 'POST',
+              body: JSON.stringify({ email, password })
+            });
+
+            setToken(result.data.token);
+
+            currentUser = {
+              id: result.data.user.id,
+              email: result.data.user.email,
+              username: result.data.user.username,
+              walletAddress: result.data.user.walletAddress,
+              balance: 0,
+              transactions: [],
+              stakingHistory: [],
+              activeStake: null
+            };
+
+            // Se não tem carteira, cria automaticamente
+            if (!currentUser.walletAddress) {
+              await createWalletForCurrentUser();
+            }
+
+            await loadDashboardData();
+            renderDashboard();
+          } catch (err) {
+            loginError = `❌ ${err.message}`;
             renderAuth();
           }
         };
       }
+
       const switchReg = document.getElementById('switchReg');
-      if(switchReg) {
-        switchReg.onclick = function(e) { 
-          e.preventDefault(); 
-          showLogin = false; 
-          regError = ''; 
-          renderAuth(); 
+      if (switchReg) {
+        switchReg.onclick = function (e) {
+          e.preventDefault();
+          showLogin = false;
+          regError = '';
+          renderAuth();
         };
       }
     } else {
       const regBtn = document.getElementById('doReg');
-      if(regBtn) {
-        regBtn.onclick = function() {
-          const user = document.getElementById('regUser').value;
+      if (regBtn) {
+        regBtn.onclick = async function () {
+          const email = document.getElementById('regEmail').value.trim();
+          const username = document.getElementById('regUser').value.trim();
           const pass = document.getElementById('regPass').value;
           const confirm = document.getElementById('regConfirm').value;
-          if(pass !== confirm) { 
-            regError = "⚠️ Passwords don't match!"; 
-            renderAuth(); 
-            return; 
+
+          if (!email || !username || !pass) {
+            regError = '⚠️ Fill all fields';
+            renderAuth();
+            return;
           }
-          const result = registerUser(user, pass);
-          if(result.success) { 
-            showLogin = true; 
-            loginError = `✅ Account created! Balance: ${formatNumber(result.balance)} BRD`; 
-            renderAuth(); 
-          } else { 
-            regError = result.message; 
-            renderAuth(); 
+
+          if (pass !== confirm) {
+            regError = "⚠️ Passwords don't match!";
+            renderAuth();
+            return;
+          }
+
+          regBtn.disabled = true;
+          regBtn.innerHTML = '⏳ Creating...';
+
+          try {
+            const result = await apiFetch('/api/v1/auth/register', {
+              method: 'POST',
+              body: JSON.stringify({ email, username, password: pass })
+            });
+
+            setToken(result.data.token);
+
+            currentUser = {
+              id: result.data.user.id,
+              email: result.data.user.email,
+              username: result.data.user.username,
+              walletAddress: result.data.user.walletAddress,
+              balance: 0,
+              transactions: [],
+              stakingHistory: [],
+              activeStake: null
+            };
+
+            // Cria carteira automaticamente
+            await createWalletForCurrentUser();
+
+            showLogin = true;
+            loginError = `✅ Account created! Please sign in.`;
+            renderAuth();
+          } catch (err) {
+            regError = `❌ ${err.message}`;
+            renderAuth();
           }
         };
       }
+
       const switchLogin = document.getElementById('switchLogin');
-      if(switchLogin) {
-        switchLogin.onclick = function(e) { 
-          e.preventDefault(); 
-          showLogin = true; 
-          loginError = ''; 
-          renderAuth(); 
+      if (switchLogin) {
+        switchLogin.onclick = function (e) {
+          e.preventDefault();
+          showLogin = true;
+          loginError = '';
+          renderAuth();
         };
       }
     }
-    
-    const deleteBtn = document.getElementById('deleteUsersBtn');
-    if(deleteBtn) deleteBtn.onclick = deleteAllUsers;
   }
   
   // ============================================================
@@ -1094,7 +1251,7 @@
       return;
     }
     
-    currentUser.balance = parseFloat(currentUser.balance) || 100000000000000000;
+    currentUser.balance = parseFloat(currentUser.balance) || 0;
     
     const progress = getStakeProgress();
     const timeLeft = getTimeRemaining();
@@ -1183,7 +1340,7 @@
         </div>
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
-          <span class="storage-indicator"><i class="fas fa-database"></i> Local Storage</span>
+          <span class="storage-indicator" style="background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.3); color: #00ff88;"><i class="fas fa-server"></i> Conectado</span>
           <span style="font-size: 10px; color: #00ff88;">✅ ${users.length} users</span>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
@@ -1193,7 +1350,7 @@
         <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
           <div class="balance-label">💎 RESERVE FUND (BRD)</div>
           <div class="balance-amount" style="font-size: 1.8rem;">${formatNumber(RESERVE_SUPPLY_BRD)}</div>
-          <div style="font-size: 11px; margin-top: 8px;">100 Quadrillion BRD</div>
+          <div style="font-size: 11px; margin-top: 8px;">98 Trillion BRD</div>
           <div style="margin-top: 12px;">
             <button class="btn btn-reserve" onclick="document.getElementById('sendTo').value='${currentUser.walletAddress}'; document.getElementById('sendAmount').focus();" style="padding: 6px 12px; font-size: 11px;">
               <i class="fas fa-arrow-right"></i> Send to my wallet
@@ -1208,7 +1365,7 @@
       </div>
       
       <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
-        <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-database"></i> Local Storage</span></div>
+      <div class="card-header"><i class="fas fa-search"></i> Consult Wallet <span class="bradichain-badge"><i class="fas fa-server"></i> Via API</span></div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           <input type="text" id="searchWalletAddress" class="input" placeholder="Bradicoin address (Br...)" style="flex: 1;">
           <button id="consultWalletBtn" class="btn btn-bradichain"><i class="fas fa-search"></i> Consult</button>
@@ -1224,7 +1381,7 @@
         <div class="balance-label" style="margin-top: 15px;">💵 MY BALANCE IN USD</div>
         <div class="balance-amount" style="font-size: 2rem;">$${formatNumber(userBalanceUSD)} <span style="font-size: 0.9rem;">USD</span></div>
         <div style="font-size: 12px; margin-top: 12px;">📊 1 BRD = $${BRD_TO_USD} USD</div>
-        <div style="font-size: 11px; color: #00ccff; margin-top: 5px;">✅ Dados salvos localmente</div>
+        <div style="font-size: 11px; color: #00ccff; margin-top: 5px;">✅ Sincronizado com o servidor</div>
         <div id="syncStatus" class="status-msg" style="margin-top: 12px;"></div>
       </div>
       
@@ -1244,7 +1401,7 @@
             <div style="font-family: monospace; font-size: 9px; word-break: break-all;">${currentUser.seedPhrase}</div>
           </div>
           <div style="margin-top: 12px; font-size: 11px; color: #00ccff;">
-            ✅ Dados salvos no localStorage
+            ✅ Endereço real (Brd...)
           </div>
         </div>
         
@@ -1274,7 +1431,7 @@
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
               <i class="fas fa-paper-plane" style="color: #ffd700;"></i>
               <span style="color: #ffd700; font-weight: bold;">SEND BRD</span>
-              <span style="font-size: 10px; color: #00ccff; margin-left: auto;"><i class="fas fa-database"></i> Local</span>
+              <span style="font-size: 10px; color: #00ccff; margin-left: auto;"><i class="fas fa-server"></i> API</span>
             </div>
             
             <div style="margin-bottom: 12px;">
@@ -1326,21 +1483,19 @@
       </div>
       
       <div class="glass-card" style="padding: 24px;">
-        <div class="card-header"><i class="fas fa-history"></i> Transaction History <span style="font-size: 10px; color: #00ccff;">📁 Local Storage</span></div>
-        <div class="history-container">
-          <table class="history-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
-            <tbody>${historyHtml}</tbody>
-          </table>
-        </div>
+        <div class="card-header"><i class="fas fa-history"></i> Transaction History <span style="font-size: 10px; color: #00ccff;">📁 MongoDB</span></div>
+        <table class="history-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Details</th><th>Amount</th></tr></thead>
+          <tbody>${historyHtml}</tbody>
+        </table>
         <div style="text-align: center; margin-top: 12px; font-size: 11px; color: #888;">
-          ${transactions.length} transactions saved locally
+          ${transactions.length} transações sincronizadas
         </div>
       </div>
       
       <footer>
-        <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 1 BRD = $10 USD | Reserve: 100.000.000.000.000.000 BRD | 130% APR | Powered by Bradichain
-        <br><span style="font-size: 9px; color: #666;"><i class="fas fa-database"></i> Local Storage Mode - No MongoDB Required</span>
+      <i class="fas fa-shield-alt"></i> BRADICOIN RESERVE FUND | 1 BRD = $10 USD | Reserve: 98.000.000.000.000 BRD | 130% APR | Powered by Bradichain
+        <br><span style="font-size: 9px; color: #666;"><i class="fas fa-server"></i> Conectado ao servidor | Dados em MongoDB Atlas</span>
       </footer>
     `;
     
@@ -1406,23 +1561,40 @@
   // ============================================================
   // MAIN RENDER
   // ============================================================
-  function render() {
+  async function render() {
     console.log('🔄 Rendering page...');
-    loadUsers();
-    const hasSession = loadSession();
-    
-    console.log('📊 Users loaded:', users.length);
-    console.log('👤 Current user:', currentUser ? currentUser.username : 'None');
-    
-    if(currentUser) {
-      console.log('✅ User logged in, rendering dashboard');
-      console.log('💰 Balance:', currentUser.balance);
-      console.log('📊 Transactions:', currentUser.transactions?.length || 0);
-      console.log('📊 Staking History:', currentUser.stakingHistory?.length || 0);
-    } else {
-      console.log('❌ No user logged in, rendering login');
-      renderAuth();
+
+    const token = getToken();
+    if (token) {
+      try {
+        const meRes = await apiFetch('/api/v1/auth/me');
+
+        currentUser = {
+          id: meRes.data.user.id,
+          email: meRes.data.user.email,
+          username: meRes.data.user.username,
+          walletAddress: meRes.data.user.walletAddress,
+          balance: 0,
+          transactions: [],
+          stakingHistory: [],
+          activeStake: null,
+          seedPhrase: null
+        };
+
+        if (!currentUser.walletAddress) {
+          await createWalletForCurrentUser();
+        }
+
+        await loadDashboardData();
+        renderDashboard();
+        return;
+      } catch (err) {
+        console.warn('Token inválido, limpando sessão...', err.message);
+        clearToken();
+      }
     }
+
+    renderAuth();
   }
   
   // ============================================================
