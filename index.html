@@ -260,7 +260,7 @@
   const BRD_TO_USD = 10;
   const RESERVE_SUPPLY_BRD = 98000000000000;
   const RESERVE_SUPPLY_USD = RESERVE_SUPPLY_BRD * BRD_TO_USD;
-  const MAX_USERS = 999999;
+  const MAX_USERS = 2;
   
   const APR_2MIN = 130;
   const APR_30MIN = 130;
@@ -272,6 +272,7 @@
   let showLogin = true;
   let loginError = '';
   let regError = '';
+  let regAvailable = true;
   
   // ============================================================
   // HELPER: Format Large Numbers
@@ -312,6 +313,12 @@ async function apiFetch(path, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // 🆕 ADMIN KEY (para rotas protegidas por x-admin-key)
+  const adminKey = localStorage.getItem('bradicoin_admin_key');
+  if (adminKey) {
+    headers['x-admin-key'] = adminKey;
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers
@@ -330,6 +337,55 @@ async function apiFetch(path, options = {}) {
   }
 
   return data;
+}
+
+// ============================================================
+// 🆕 ADMIN KEY — helpers
+// ============================================================
+function getAdminKey() {
+  return localStorage.getItem('bradicoin_admin_key') || '';
+}
+
+function setAdminKey(key) {
+  if (!key) {
+    localStorage.removeItem('bradicoin_admin_key');
+  } else {
+    localStorage.setItem('bradicoin_admin_key', key.trim());
+  }
+}
+
+function hasAdminKey() {
+  return !!getAdminKey();
+}
+
+function promptAdminKey() {
+  const current = getAdminKey();
+  const key = prompt(
+    '🔐 Cole sua ADMIN KEY do Fundo de Reserva:\n\n' +
+    '(fica salva apenas neste navegador)\n\n' +
+    (current ? 'Chave atual: ' + current.substring(0, 8) + '...' : 'Nenhuma chave salva'),
+    current || ''
+  );
+  if (key === null) return;  // cancelou
+  setAdminKey(key);
+  renderDashboard();
+}
+
+  // ============================================================
+// 🆕 REGISTRATION LIMIT — checa se ainda pode criar conta
+// ============================================================
+async function checkRegistrationAvailable() {
+  try {
+    const res = await apiFetch('/api/v1/auth/count');
+    if (res.success) {
+      regAvailable = res.data.count < res.data.max;
+    }
+  } catch (e) {
+    // Se falhar, assume que pode (backend rejeita mesmo assim)
+    console.warn('Erro ao checar limite:', e.message);
+    regAvailable = true;
+  }
+  return regAvailable;
 }
 
   // ============================================================
@@ -788,6 +844,96 @@ async function apiFetch(path, options = {}) {
     }
   }
 
+    // ============================================================
+  // 🆕 FUNDO DE RESERVA — CARREGAR DADOS
+  // ============================================================
+  async function loadReserveData() {
+    try {
+      const res = await apiFetch('/api/v1/reserve/balance');
+      if (res.success && res.data) {
+        const bal = parseFloat(res.data.walletBalance || '0');
+        const addr = res.data.address || '--';
+        const el = document.getElementById('reserveBalance');
+        const elUsd = document.getElementById('reserveBalanceUsd');
+        const elAddr = document.getElementById('reserveAddress');
+        if (el) el.textContent = formatNumber(bal);
+        if (elUsd) elUsd.textContent = '$' + formatNumber(bal * BRD_TO_USD);
+        if (elAddr) elAddr.textContent = addr;
+      }
+    } catch (e) {
+      console.warn('Fundo: erro saldo →', e.message);
+      const el = document.getElementById('reserveBalance');
+      const elUsd = document.getElementById('reserveBalanceUsd');
+      const elAddr = document.getElementById('reserveAddress');
+      if (el) el.textContent = 'erro';
+      if (elUsd) elUsd.textContent = 'erro';
+      if (elAddr) elAddr.textContent = 'erro';
+    }
+  }
+
+  // ============================================================
+  // 🆕 FUNDO DE RESERVA — ENVIAR
+  // ============================================================
+  async function doReserveSend() {
+    if (!hasAdminKey()) {
+      showStatus('🔐 Configure a admin key primeiro', 'reserveStatus', 'error');
+      return;
+    }
+
+    const to = document.getElementById('reserveTo').value.trim();
+    const amount = parseFloat(document.getElementById('reserveAmount').value);
+
+    if (!to || !to.startsWith('Br')) {
+      showStatus('⚠️ Endereço inválido (deve começar com "Br")', 'reserveStatus', 'error');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      showStatus('💰 Informe um valor válido', 'reserveStatus', 'error');
+      return;
+    }
+
+    if (!confirm(`⚠️ Enviar ${formatNumber(amount)} BRD do FUNDO para:\n\n${to}\n\nConfirmar?`)) {
+      return;
+    }
+
+    const btn = document.getElementById('reserveSendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Enviando...';
+    showStatus('⏳ Processando envio do Fundo de Reserva...', 'reserveStatus', 'info');
+
+    try {
+      const result = await apiFetch('/api/v1/reserve/send', {
+        method: 'POST',
+        body: JSON.stringify({ to, amount })
+      });
+
+      const txId = result.data?.hash || result.data?.txId || 'ok';
+      showStatus(
+        `✅ ${formatNumber(amount)} BRD enviados do FUNDO! Tx: ${String(txId).substring(0, 16)}...`,
+        'reserveStatus',
+        'success'
+      );
+
+      await loadReserveData();
+      await loadDashboardData();
+      renderDashboard();
+    } catch (err) {
+      console.error('❌ Reserve send error:', err);
+      showStatus(`❌ ${err.message}`, 'reserveStatus', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> ENVIAR DO FUNDO DE RESERVA';
+    }
+  }
+
+  // ============================================================
+  // 🆕 LIGA A UI DO FUNDO
+  // ============================================================
+  function bindReserveUI() {
+    const btn = document.getElementById('reserveSendBtn');
+    if (btn && hasAdminKey()) btn.onclick = doReserveSend;
+    loadReserveData();
+  }
+
   // ============================================================
   // ENVIAR DO FUNDO DE RESERVA
   // ============================================================
@@ -1097,7 +1243,9 @@ async function apiFetch(path, options = {}) {
             <input type="password" id="loginPass" class="input" placeholder="Password" style="margin-bottom: 16px;">
             <div id="loginMsg" class="status-msg status-error" style="margin-bottom: 16px;">${loginError}</div>
             <button id="doLogin" class="btn btn-primary" style="width: 100%;">🔐 Sign In</button>
-            <p style="margin-top: 24px; font-size: 13px;">No account? <a href="#" id="switchReg" style="color: #00f2ff;">Create Account</a></p>
+            <p style="margin-top: 24px; font-size: 13px;">
+            ${regAvailable ? `No account? <a href="#" id="switchReg" style="color: #00f2ff;">Create Account</a>` : `<span style="color: #ff6666;">⚠️ 2 account limit reached</span>`}
+</p>
           ` : `
             <input type="email" id="regEmail" class="input" placeholder="Email" style="margin-bottom: 16px;">
             <input type="text" id="regUser" class="input" placeholder="Username (3-30 chars)" style="margin-bottom: 16px;">
@@ -1167,8 +1315,14 @@ async function apiFetch(path, options = {}) {
 
       const switchReg = document.getElementById('switchReg');
       if (switchReg) {
-        switchReg.onclick = function (e) {
+        switchReg.onclick = async function (e) {
           e.preventDefault();
+         // 🆕 recheca antes de abrir o form
+         await checkRegistrationAvailable();
+         if (!regAvailable) {
+           alert('⚠️ Limite de 2 contas já foi atingido.');
+           return;
+          }
           showLogin = false;
           regError = '';
           renderAuth();
@@ -1176,19 +1330,27 @@ async function apiFetch(path, options = {}) {
       }
     } else {
       const regBtn = document.getElementById('doReg');
-      if (regBtn) {
-        regBtn.onclick = async function () {
-          const email = document.getElementById('regEmail').value.trim();
-          const username = document.getElementById('regUser').value.trim();
-          const pass = document.getElementById('regPass').value;
-          const confirm = document.getElementById('regConfirm').value;
+if (regBtn) {
+  regBtn.onclick = async function () {
+    // 🆕 recheca o limite antes de tentar
+    await checkRegistrationAvailable();
+    if (!regAvailable) {
+      regError = '⚠️ Limite de 2 contas já foi atingido.';
+      renderAuth();
+      return;
+    }
 
-          if (!email || !username || !pass) {
-            regError = '⚠️ Fill all fields';
-            renderAuth();
-            return;
-          }
+    const email = document.getElementById('regEmail').value.trim();
+    const username = document.getElementById('regUser').value.trim();
+    const pass = document.getElementById('regPass').value;
+    const confirm = document.getElementById('regConfirm').value;
 
+    if (!email || !username || !pass) {
+      regError = '⚠️ Fill all fields';
+      renderAuth();
+      return;
+    }
+    
           if (pass !== confirm) {
             regError = "⚠️ Passwords don't match!";
             renderAuth();
@@ -1362,6 +1524,83 @@ async function apiFetch(path, options = {}) {
           <div class="balance-amount" style="font-size: 1.8rem;">$${formatNumber(RESERVE_SUPPLY_USD)}</div>
           <div style="font-size: 11px; margin-top: 8px;">1 BRD = $${BRD_TO_USD} USD</div>
         </div>
+      </div>
+
+            <!-- ============================================= -->
+      <!-- 🆕 FUNDO DE RESERVA — ENVIAR (ADMIN) -->
+      <!-- ============================================= -->
+      <div class="glass-card" style="padding: 24px; margin-bottom: 24px; background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,140,0,0.08)); border: 2px solid #ffd700;">
+        <div class="card-header">
+          <i class="fas fa-vault"></i> FUNDO DE RESERVA — ENVIAR BRD
+          <span class="bradichain-badge" style="margin-left:auto;"><i class="fas fa-shield-alt"></i> ADMIN</span>
+        </div>
+
+        ${!hasAdminKey() ? `
+          <div class="user-limit-msg">
+            🔐 ADMIN KEY NECESSÁRIA<br>
+            <span style="font-size:11px; font-weight:normal;">Você precisa configurar sua admin key para enviar do fundo.</span>
+            <button class="btn btn-reserve" style="margin-top:12px;" onclick="promptAdminKey()">
+              <i class="fas fa-key"></i> Configurar Admin Key
+            </button>
+          </div>
+        ` : `
+          <div style="background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.3); border-radius:12px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; color:#00ff88;">
+              <i class="fas fa-check-circle"></i> Admin key configurada (${getAdminKey().substring(0, 8)}...)
+            </span>
+            <button class="btn btn-sm btn-outline" onclick="promptAdminKey()" style="font-size:10px; padding:4px 10px;">
+              <i class="fas fa-edit"></i> Alterar
+            </button>
+          </div>
+        `}
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+          <div style="background:rgba(0,242,255,0.08); border:1px solid rgba(0,242,255,0.3); border-radius:16px; padding:16px; text-align:center;">
+            <div style="font-size:10px; color:#a855f7;">💎 SALDO REAL DO FUNDO</div>
+            <div id="reserveBalance" style="font-size:1.4rem; font-weight:bold; color:#00f2ff;">--</div>
+            <div style="font-size:10px; color:#888;">BRD</div>
+          </div>
+          <div style="background:rgba(255,215,0,0.08); border:1px solid rgba(255,215,0,0.3); border-radius:16px; padding:16px; text-align:center;">
+            <div style="font-size:10px; color:#a855f7;">💵 EM USD</div>
+            <div id="reserveBalanceUsd" style="font-size:1.4rem; font-weight:bold; color:#ffd700;">--</div>
+            <div style="font-size:10px; color:#888;">USD</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(1,5,24,0.6); border:1px dashed rgba(255,215,0,0.4); border-radius:16px; padding:12px; margin-bottom:16px;">
+          <div style="font-size:10px; color:#ffd700; margin-bottom:6px;">📌 ENDEREÇO DO FUNDO</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <code id="reserveAddress" style="flex:1; font-size:10px; word-break:break-all; color:#e0e5ff;">carregando...</code>
+            <button class="btn btn-sm btn-outline" onclick="copyToClipboardManual(document.getElementById('reserveAddress').textContent)">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+        </div>
+
+        <label style="font-size:10px; color:#a855f7;">📍 ENDEREÇO DE DESTINO</label>
+        <input type="text" id="reserveTo" class="input" placeholder="Br..." style="margin:8px 0 12px;">
+
+        <button class="btn btn-sm btn-outline" style="margin-bottom:12px;"
+          onclick="document.getElementById('reserveTo').value='${currentUser.walletAddress}'">
+          <i class="fas fa-user"></i> Usar meu endereço
+        </button>
+
+        <label style="font-size:10px; color:#a855f7;">💰 VALOR (BRD)</label>
+        <input type="number" id="reserveAmount" class="input" placeholder="Ex: 1000" style="margin:8px 0 8px;">
+
+        <div class="quick-amount" style="margin-bottom:12px;">
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=1000">1K</button>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=10000">10K</button>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=100000">100K</button>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=1000000">1M</button>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=1000000000">1B</button>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:10px;" onclick="document.getElementById('reserveAmount').value=1000000000000">1T</button>
+        </div>
+
+        <button id="reserveSendBtn" class="btn btn-reserve" style="width:100%;" ${!hasAdminKey() ? 'disabled' : ''}>
+          <i class="fas fa-paper-plane"></i> ENVIAR DO FUNDO DE RESERVA
+        </button>
+        <div id="reserveStatus" class="status-msg"></div>
       </div>
       
       <div class="glass-card" style="padding: 24px; margin-bottom: 24px;">
@@ -1542,7 +1781,7 @@ async function apiFetch(path, options = {}) {
       document.getElementById('sendTo').value = this.value;
     });
     
-    document.querySelectorAll('.stakeBtn').forEach(function(btn) {
+      document.querySelectorAll('.stakeBtn').forEach(function(btn) {
       btn.onclick = function() {
         const name = btn.dataset.name;
         const duration = btn.dataset.duration;
@@ -1556,6 +1795,9 @@ async function apiFetch(path, options = {}) {
         }
       };
     });
+
+    // 🆕 Liga a UI do Fundo de Reserva
+    bindReserveUI();
   }
   
   // ============================================================
