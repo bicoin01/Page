@@ -558,10 +558,11 @@ async function checkRegistrationAvailable() {
     try {
       // Saldo
       try {
-        const balRes = await apiFetch('/api/v1/wallet/balance');
-        if (balRes.success) {
-          currentUser.balance = balRes.data.total || 0;
-        }
+      if (!currentUser.walletAddress) throw new Error('Sem carteira');
+      const balRes = await apiFetch(`/api/v1/wallet/balance/${currentUser.walletAddress}`);
+      if (balRes.success) {
+        currentUser.balance = parseFloat(balRes.data.balance) || 0;
+      }
       } catch (e) {
         console.warn('Erro ao buscar saldo:', e.message);
         currentUser.balance = 0;
@@ -569,15 +570,16 @@ async function checkRegistrationAvailable() {
 
       // Histórico
       try {
-        const histRes = await apiFetch('/api/v1/wallet/history?limit=50');
-        if (histRes.success) {
-          currentUser.transactions = (histRes.data.transactions || []).map(t => ({
-            date: new Date(t.createdAt).toLocaleString('pt-BR'),
-            type: (t.type || '').toUpperCase(),
-            details: `${t.direction === 'out' ? 'Enviado para' : 'Recebido de'} ${(t.from || t.to || '').substring(0, 20)}...`,
-            amount: t.direction === 'out' ? -t.amount : t.amount
-          }));
-        }
+      if (!currentUser.walletAddress) throw new Error('Sem carteira');
+      const histRes = await apiFetch(`/api/v1/wallet/history/${currentUser.walletAddress}?limit=50`);
+      if (histRes.success) {
+        currentUser.transactions = (histRes.data.transactions || []).map(t => ({
+          date: new Date(t.timestamp || t.createdAt).toLocaleString('pt-BR'),
+          type: (t.type || 'transfer').toUpperCase(),
+          details: [t.from && 'De ' + String(t.from).substring(0, 12), t.to && '→ ' + String(t.to).substring(0, 12)].filter(Boolean).join(' '),
+          amount: t.amount
+         }));
+      }
       } catch (e) {
         console.warn('Erro ao buscar histórico:', e.message);
       }
@@ -621,58 +623,39 @@ async function checkRegistrationAvailable() {
         currentUser.activeStake = null;
       }
 
-      // Seed phrase (só gera localmente, backend não retorna)
-      if (!currentUser.seedPhrase) {
-        currentUser.seedPhrase = generateSeedPhrase();
-      }
-
     } catch (err) {
       console.error('Erro geral ao carregar dados:', err);
     }
   }
 
-  // ============================================================
+    // ============================================================
   // CRIA CARTEIRA PARA O USUÁRIO ATUAL
   // ============================================================
   async function createWalletForCurrentUser() {
     if (!currentUser) return;
 
-    // Gera endereço Brd... no frontend
+    // 1) Tenta /wallet/me primeiro
+    try {
+      const meRes = await apiFetch('/api/v1/wallet/me');
+      if (meRes.success && meRes.data) {
+        currentUser.walletAddress = meRes.data.address;
+        return;
+      }
+    } catch (e) { /* sem carteira, continua */ }
+
+    // 2) Cria via /wallet/register
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let random = '';
-    for (let i = 0; i < 38; i++) {
-      random += chars[Math.floor(Math.random() * chars.length)];
-    }
-    const address = 'Brd' + random;
+    for (let i = 0; i < 38; i++) random += chars[Math.floor(Math.random() * chars.length)];
+    const address = 'Br' + random;
 
-    try {
-      const result = await apiFetch('/api/v1/wallet/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          address,
-          username: currentUser.username
-        })
-      });
-
-      if (result.success) {
-        currentUser.walletAddress = result.data.wallet.address;
-        console.log('✅ Carteira criada:', currentUser.walletAddress);
-      }
-    } catch (err) {
-      console.error('❌ Erro ao criar carteira:', err.message);
-      // Se já tem carteira (409), tenta recuperar
-      if (err.message.includes('já tem uma carteira') || err.message.includes('já está em uso')) {
-        try {
-          const meRes = await apiFetch('/api/v1/auth/me');
-          currentUser.walletAddress = meRes.data.user.walletAddress;
-        } catch (e) {
-          console.error('Não foi possível recuperar carteira:', e.message);
-        }
-      }
-      throw err;
-    }
+    const result = await apiFetch('/api/v1/wallet/register', {
+      method: 'POST',
+      body: JSON.stringify({ address, publicKey: address })
+    });
+    if (result.success) currentUser.walletAddress = result.data.address || address;
   }
-
+  
   // ============================================================
   // LOGOUT REAL
   // ============================================================
@@ -802,75 +785,95 @@ async function checkRegistrationAvailable() {
   // ============================================================
   // SEND BRD
   // ============================================================
-  async function sendBRD(toAddress, amount) {
-    if (!currentUser) {
-      showStatus('❌ No user logged in', 'sendStatus', 'error');
-      return;
-    }
-
-    if (!toAddress || !toAddress.startsWith('Br')) {
-      showStatus('⚠️ Endereço inválido. Deve começar com "Br"', 'sendStatus', 'error');
-      return;
-    }
-
-    const sendAmount = parseFloat(amount);
-    if (isNaN(sendAmount) || sendAmount <= 0) {
-      showStatus('💰 Informe um valor válido', 'sendStatus', 'error');
-      return;
-    }
-
-    showStatus('⏳ Enviando transação...', 'sendStatus', 'info');
-
-    try {
-      const result = await apiFetch('/api/v1/wallet/send', {
-        method: 'POST',
-        body: JSON.stringify({
-          to: toAddress,
-          amount: sendAmount
-        })
-      });
-
-      showStatus(
-        `✅ ${formatNumber(sendAmount)} BRD enviado! Tx: ${result.data.txId.substring(0, 16)}...`,
-        'sendStatus',
-        'success'
-      );
-
-      await loadDashboardData();
-      renderDashboard();
-    } catch (err) {
-      console.error('❌ Send error:', err);
-      showStatus(`❌ ${err.message}`, 'sendStatus', 'error');
-    }
+    async function sendBRD(toAddress, amount) {
+      if (!hasAdminKey()) {
+    showStatus('🔐 Configure a admin key primeiro (envio é feito pelo Fundo)', 'sendStatus', 'error');
+    return;
   }
 
+  if (!toAddress || !toAddress.startsWith('Br') || toAddress.length !== 40) {
+    showStatus('⚠️ Endereço inválido (Br + 38 caracteres)', 'sendStatus', 'error');
+    return;
+  }
+
+  const sendAmount = parseFloat(amount);
+  if (isNaN(sendAmount) || sendAmount <= 0) {
+    showStatus('💰 Informe um valor válido', 'sendStatus', 'error');
+    return;
+  }
+
+  const realBal = window.__reserveRealBalance;
+  if (typeof realBal === 'number' && sendAmount > realBal) {
+    showStatus(`❌ Saldo insuficiente. Fundo tem ${formatNumber(realBal)} BRD`, 'sendStatus', 'error');
+    return;
+  }
+
+  if (!confirm(`⚠️ Enviar ${formatNumber(sendAmount)} BRD do FUNDO para:\n\n${toAddress}\n\nSaldo atual do fundo: ${formatNumber(realBal || 0)} BRD\n\nConfirmar?`)) return;
+
+  showStatus('⏳ Enviando do Fundo...', 'sendStatus', 'info');
+
+  try {
+    const result = await apiFetch('/api/v1/reserve/send', {
+      method: 'POST',
+      body: JSON.stringify({ to: toAddress, amount: sendAmount })
+    });
+
+    const txId = result.data?.hash || result.data?.txId || 'ok';
+    showStatus(`✅ ${formatNumber(sendAmount)} BRD enviados! Tx: ${String(txId).substring(0, 16)}...`, 'sendStatus', 'success');
+
+    await loadReserveData();
+    await loadDashboardData();
+    renderDashboard();
+  } catch (err) {
+    console.error('❌ Send error:', err);
+    showStatus(`❌ ${err.message}`, 'sendStatus', 'error');
+  }
+}
     // ============================================================
   // 🆕 FUNDO DE RESERVA — CARREGAR DADOS
   // ============================================================
-  async function loadReserveData() {
-    try {
-      const res = await apiFetch('/api/v1/reserve/balance');
-      if (res.success && res.data) {
-        const bal = parseFloat(res.data.walletBalance || '0');
-        const addr = res.data.address || '--';
-        const el = document.getElementById('reserveBalance');
-        const elUsd = document.getElementById('reserveBalanceUsd');
-        const elAddr = document.getElementById('reserveAddress');
-        if (el) el.textContent = formatNumber(bal);
-        if (elUsd) elUsd.textContent = '$' + formatNumber(bal * BRD_TO_USD);
-        if (elAddr) elAddr.textContent = addr;
-      }
-    } catch (e) {
-      console.warn('Fundo: erro saldo →', e.message);
+    async function loadReserveData() {
+      try {
+    const res = await apiFetch('/api/v1/reserve/balance');
+    if (res.success && res.data) {
+      const bal = parseFloat(res.data.walletBalance || '0');
+      const addr = res.data.address || '--';
+      const balUsd = bal * BRD_TO_USD;
+
+      // Bloco dourado (dentro de "FUNDO DE RESERVA — ENVIAR")
       const el = document.getElementById('reserveBalance');
       const elUsd = document.getElementById('reserveBalanceUsd');
       const elAddr = document.getElementById('reserveAddress');
-      if (el) el.textContent = 'erro';
-      if (elUsd) elUsd.textContent = 'erro';
-      if (elAddr) elAddr.textContent = 'erro';
-    }
-  }
+      if (el) el.textContent = formatNumber(bal);
+      if (elUsd) elUsd.textContent = '$' + formatNumber(balUsd);
+      if (elAddr) elAddr.textContent = addr;
 
+      // Cards do topo (agora dinâmicos)
+      const topBrd = document.getElementById('reserveSupplyBrd');
+      const topUsd = document.getElementById('reserveSupplyUsd');
+      if (topBrd) topBrd.textContent = formatNumber(bal);
+      if (topUsd) topUsd.textContent = '$' + formatNumber(balUsd);
+
+      // Guarda saldo real para validação antes de enviar
+      window.__reserveRealBalance = bal;
+    }
+  } catch (e) {
+    console.warn('Fundo: erro saldo →', e.message);
+    const el = document.getElementById('reserveBalance');
+    const elUsd = document.getElementById('reserveBalanceUsd');
+    const elAddr = document.getElementById('reserveAddress');
+    if (el) el.textContent = '⚠️';
+    if (elUsd) elUsd.textContent = '⚠️';
+    if (elAddr) elAddr.textContent = e.message;
+
+    const topBrd = document.getElementById('reserveSupplyBrd');
+    const topUsd = document.getElementById('reserveSupplyUsd');
+    if (topBrd) topBrd.textContent = '⚠️';
+    if (topUsd) topUsd.textContent = '⚠️';
+
+    showStatus(`Fundo: ${e.message}`, 'reserveStatus', 'error');
+  }
+}
   // ============================================================
   // 🆕 FUNDO DE RESERVA — ENVIAR
   // ============================================================
@@ -924,13 +927,70 @@ async function checkRegistrationAvailable() {
       btn.innerHTML = '<i class="fas fa-paper-plane"></i> ENVIAR DO FUNDO DE RESERVA';
     }
   }
+  
+    // ============================================================
+  // 🆕 REPOR FUNDO — manual (admin)
+  // ============================================================
+  async function reporFundo() {
+    if (!hasAdminKey()) {
+      showStatus('🔐 Configure a admin key primeiro', 'reserveStatus', 'error');
+      return;
+    }
 
+    const amountStr = prompt(
+      '💰 Quanto repor no Fundo? (BRD)\n\n' +
+      'Ex: 1000000000000 = 1 trilhão\n' +
+      'Ex: 1000000000 = 1 bilhão\n' +
+      'Ex: 1000000 = 1 milhão',
+      '1000000000000'
+    );
+    if (amountStr === null) return; // cancelou
+
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      showStatus('💰 Valor inválido', 'reserveStatus', 'error');
+      return;
+    }
+
+    if (!confirm(
+      `⚠️ Repor ${formatNumber(amount)} BRD no Fundo?\n\n` +
+      `⚠️ ATENÇÃO: Isso CRIA novos BRD (mint).\n` +
+      `O total supply vai aumentar em ${formatNumber(amount)} BRD.\n\n` +
+      `Confirmar?`
+    )) return;
+
+    showStatus('⏳ Repondo fundo...', 'reserveStatus', 'info');
+
+    try {
+      const result = await apiFetch('/api/v1/admin/reserve/mint', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amount.toString() })
+      });
+
+      showStatus(
+        `✅ ${formatNumber(amount)} BRD repostos no Fundo!`,
+        'reserveStatus',
+        'success'
+      );
+
+      await loadReserveData();
+      renderDashboard();
+    } catch (err) {
+      console.error('❌ Repor error:', err);
+      showStatus(`❌ ${err.message}`, 'reserveStatus', 'error');
+    }
+  }
+  
   // ============================================================
   // 🆕 LIGA A UI DO FUNDO
   // ============================================================
-  function bindReserveUI() {
+    function bindReserveUI() {
     const btn = document.getElementById('reserveSendBtn');
-    if (btn && hasAdminKey()) btn.onclick = doReserveSend;
+    if (btn) btn.onclick = doReserveSend;  // sempre liga (a função checa admin key)
+
+    const reporBtn = document.getElementById('reporFundoBtn');
+    if (reporBtn) reporBtn.onclick = reporFundo;  // 🆕
+
     loadReserveData();
   }
 
@@ -1049,7 +1109,15 @@ async function checkRegistrationAvailable() {
     window.open(url, '_blank');
     showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
   }
-  
+
+  function lookupOnBradichain() {
+  if (!currentUser || !currentUser.walletAddress) {
+    showStatus('📌 No wallet loaded', 'searchStatus', 'error');
+    return;
+  }
+  window.open(`${BRADICHAIN_URL}/address/${currentUser.walletAddress}`, '_blank');
+}
+
   function copyToClipboardManual(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
@@ -1184,39 +1252,6 @@ async function checkRegistrationAvailable() {
     if(hours > 0) return `${hours}h ${mins}m ${secs}s`;
     if(mins > 0) return `${mins}m ${secs}s`;
     return `${secs}s`;
-  }
-  
-  // ============================================================
-  // RECEIVE (SIMULATE)
-  // ============================================================
-  function simulateReceive(amount) {
-    if(!currentUser) return;
-    const receiveAmount = parseFloat(amount);
-    if(!receiveAmount || receiveAmount <= 0) { 
-      showStatus('💰 Invalid amount', 'sendStatus', 'error'); 
-      return; 
-    }
-    currentUser.balance = parseFloat(currentUser.balance) + receiveAmount;
-    addTransaction('RECEIVED', `Received ${formatNumber(receiveAmount)} BRD`, receiveAmount);
-    saveCurrentUser();
-    renderDashboard();
-    showStatus(`✅ ${formatNumber(receiveAmount)} BRD received!`, 'sendStatus', 'success');
-  }
-  
-  function lookupOnBradichain() {
-    if(!currentUser) return;
-    window.open(`${BRADICHAIN_URL}/address/${currentUser.walletAddress}`, '_blank');
-  }
-  
-  function showStatus(msg, elementId, type = 'info') {
-    const el = document.getElementById(elementId);
-    if(el) {
-      el.innerHTML = msg;
-      el.className = `status-msg status-${type}`;
-      setTimeout(() => {
-        if(el.innerHTML === msg) el.innerHTML = '';
-      }, 6000);
-    }
   }
   
   // ============================================================
@@ -1509,22 +1544,22 @@ if (regBtn) {
       </div>
       
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px;">
-        <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
-          <div class="balance-label">💎 RESERVE FUND (BRD)</div>
-          <div class="balance-amount" style="font-size: 1.8rem;">${formatNumber(RESERVE_SUPPLY_BRD)}</div>
-          <div style="font-size: 11px; margin-top: 8px;">98 Trillion BRD</div>
-          <div style="margin-top: 12px;">
-            <button class="btn btn-reserve" onclick="document.getElementById('sendTo').value='${currentUser.walletAddress}'; document.getElementById('sendAmount').focus();" style="padding: 6px 12px; font-size: 11px;">
-              <i class="fas fa-arrow-right"></i> Send to my wallet
-            </button>
-          </div>
-        </div>
-        <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
-          <div class="balance-label">💵 RESERVE FUND (USD)</div>
-          <div class="balance-amount" style="font-size: 1.8rem;">$${formatNumber(RESERVE_SUPPLY_USD)}</div>
-          <div style="font-size: 11px; margin-top: 8px;">1 BRD = $${BRD_TO_USD} USD</div>
-        </div>
-      </div>
+  <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
+    <div class="balance-label">💎 RESERVE FUND (BRD) — SALDO REAL</div>
+    <div class="balance-amount" id="reserveSupplyBrd" style="font-size: 1.8rem;">--</div>
+    <div style="font-size: 11px; margin-top: 8px;">Saldo atual do Fundo</div>
+    <div style="margin-top: 12px;">
+      <button class="btn btn-reserve" onclick="document.getElementById('sendTo').value='${currentUser.walletAddress}'; document.getElementById('sendAmount').focus();" style="padding: 6px 12px; font-size: 11px;">
+        <i class="fas fa-arrow-right"></i> Enviar para minha wallet
+      </button>
+    </div>
+  </div>
+  <div class="glass-card reserve-card" style="padding: 20px; text-align: center;">
+    <div class="balance-label">💵 RESERVE FUND (USD) — SALDO REAL</div>
+    <div class="balance-amount" id="reserveSupplyUsd" style="font-size: 1.8rem;">--</div>
+    <div style="font-size: 11px; margin-top: 8px;">1 BRD = $${BRD_TO_USD} USD</div>
+  </div>
+</div>
 
             <!-- ============================================= -->
       <!-- 🆕 FUNDO DE RESERVA — ENVIAR (ADMIN) -->
@@ -1600,6 +1635,11 @@ if (regBtn) {
         <button id="reserveSendBtn" class="btn btn-reserve" style="width:100%;" ${!hasAdminKey() ? 'disabled' : ''}>
           <i class="fas fa-paper-plane"></i> ENVIAR DO FUNDO DE RESERVA
         </button>
+
+        <button id="reporFundoBtn" class="btn btn-outline" style="width:100%; margin-top:8px;" onclick="reporFundo()" ${!hasAdminKey() ? 'disabled' : ''}>
+          <i class="fas fa-plus-circle"></i> REPOR FUNDO (MINT)
+        </button>
+        
         <div id="reserveStatus" class="status-msg"></div>
       </div>
       
@@ -1634,10 +1674,6 @@ if (regBtn) {
           <div class="inline-buttons">
             <button id="copyAddressBtn" class="btn btn-outline" style="flex: 1;"><i class="fas fa-copy"></i> Copy</button>
             <button id="lookupChainBtn" class="btn btn-bradichain" style="flex: 1;"><i class="fas fa-link"></i> Explorer</button>
-          </div>
-          <div class="wallet-box" style="margin-top: 16px;">
-            <div style="font-size: 11px; color: #a855f7; margin-bottom: 8px;">🔐 SEED PHRASE</div>
-            <div style="font-family: monospace; font-size: 9px; word-break: break-all;">${currentUser.seedPhrase}</div>
           </div>
           <div style="margin-top: 12px; font-size: 11px; color: #00ccff;">
             ✅ Endereço real (Brd...)
@@ -1699,25 +1735,6 @@ if (regBtn) {
             <button id="sendBtn" class="btn btn-primary" style="width: 100%;"><i class="fas fa-paper-plane"></i> Send BRD</button>
             <div id="sendStatus" class="status-msg"></div>
           </div>
-          
-          <hr>
-          
-          <div style="margin-top: 12px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-              <i class="fas fa-download" style="color: #00ff88;"></i>
-              <span style="color: #00ff88; font-weight: bold;">RECEIVE (SIMULATE)</span>
-            </div>
-            
-            <div class="quick-amount">
-              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('receiveAmount').value=100">100</button>
-              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('receiveAmount').value=1000">1K</button>
-              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('receiveAmount').value=10000">10K</button>
-              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 10px;" onclick="document.getElementById('receiveAmount').value=100000">100K</button>
-            </div>
-            
-            <input type="number" id="receiveAmount" class="input" placeholder="💰 Amount (BRD)" style="margin-bottom: 12px;">
-            <button id="receiveBtn" class="btn btn-success" style="width: 100%;"><i class="fas fa-download"></i> Receive (Simulate)</button>
-          </div>
         </div>
       </div>
       
@@ -1757,14 +1774,6 @@ if (regBtn) {
         return;
       }
       sendBRD(to, amount);
-    };
-    document.getElementById('receiveBtn').onclick = function() {
-      const amount = parseFloat(document.getElementById('receiveAmount').value);
-      if(!amount || amount <= 0) {
-        showStatus('💰 Enter a valid amount', 'sendStatus', 'error');
-        return;
-      }
-      simulateReceive(amount);
     };
     document.getElementById('unstakeBtn').onclick = doUnstake;
     document.getElementById('consultWalletBtn').onclick = consultarWallet;
