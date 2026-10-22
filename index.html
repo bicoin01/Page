@@ -786,49 +786,60 @@ async function checkRegistrationAvailable() {
   // SEND BRD
   // ============================================================
     async function sendBRD(toAddress, amount) {
-      if (!hasAdminKey()) {
-    showStatus('🔐 Configure a admin key primeiro (envio é feito pelo Fundo)', 'sendStatus', 'error');
+  if (!currentUser) {
+    showStatus('❌ Sem usuário logado', 'sendStatus', 'error');
     return;
   }
-
   if (!toAddress || !toAddress.startsWith('Br') || toAddress.length !== 40) {
     showStatus('⚠️ Endereço inválido (Br + 38 caracteres)', 'sendStatus', 'error');
     return;
   }
-
+  if (toAddress === currentUser.walletAddress) {
+    showStatus('⚠️ Não pode enviar para sua própria carteira', 'sendStatus', 'error');
+    return;
+  }
   const sendAmount = parseFloat(amount);
   if (isNaN(sendAmount) || sendAmount <= 0) {
     showStatus('💰 Informe um valor válido', 'sendStatus', 'error');
     return;
   }
-
-  const realBal = window.__reserveRealBalance;
-  if (typeof realBal === 'number' && sendAmount > realBal) {
-    showStatus(`❌ Saldo insuficiente. Fundo tem ${formatNumber(realBal)} BRD`, 'sendStatus', 'error');
+  const userBal = parseFloat(currentUser.balance) || 0;
+  if (sendAmount > userBal) {
+    showStatus(`❌ Saldo insuficiente. Você tem ${formatNumber(userBal)} BRD`, 'sendStatus', 'error');
     return;
   }
+  if (!confirm(
+    `⚠️ Enviar ${formatNumber(sendAmount)} BRD da SUA carteira?\n\n` +
+    `Para: ${toAddress}\n\n` +
+    `Seu saldo: ${formatNumber(userBal)} BRD\n` +
+    `Saldo após envio: ${formatNumber(userBal - sendAmount)} BRD\n\n` +
+    `Confirmar?`
+  )) return;
 
-  if (!confirm(`⚠️ Enviar ${formatNumber(sendAmount)} BRD do FUNDO para:\n\n${toAddress}\n\nSaldo atual do fundo: ${formatNumber(realBal || 0)} BRD\n\nConfirmar?`)) return;
-
-  showStatus('⏳ Enviando do Fundo...', 'sendStatus', 'info');
+  const btn = document.getElementById('sendBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Enviando...'; }
+  showStatus('⏳ Enviando da sua carteira...', 'sendStatus', 'info');
 
   try {
-    const result = await apiFetch('/api/v1/reserve/send', {
+    const result = await apiFetch('/api/v1/wallet/send', {
       method: 'POST',
-      body: JSON.stringify({ to: toAddress, amount: sendAmount })
+      body: JSON.stringify({
+        from: currentUser.walletAddress,
+        to: toAddress,
+        amount: sendAmount
+      })
     });
-
     const txId = result.data?.hash || result.data?.txId || 'ok';
     showStatus(`✅ ${formatNumber(sendAmount)} BRD enviados! Tx: ${String(txId).substring(0, 16)}...`, 'sendStatus', 'success');
-
-    await loadReserveData();
     await loadDashboardData();
     renderDashboard();
   } catch (err) {
     console.error('❌ Send error:', err);
     showStatus(`❌ ${err.message}`, 'sendStatus', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send BRD'; }
   }
 }
+
     // ============================================================
   // 🆕 FUNDO DE RESERVA — CARREGAR DADOS
   // ============================================================
@@ -1036,115 +1047,64 @@ async function checkRegistrationAvailable() {
   // ============================================================
   // CONSULT WALLET
   // ============================================================
-  function consultarWallet() {
-    const address = document.getElementById('searchWalletAddress').value.trim();
-    const resultDiv = document.getElementById('searchResult');
-    
-    if (!address) {
-      showStatus('📌 Enter a wallet address', 'searchStatus', 'error');
-      return;
-    }
-    
-    resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consulting local database...</div>';
-    resultDiv.classList.add('show');
-    
-    const localUser = users.find(u => u.walletAddress === address);
-    
-    if (localUser) {
-      const balance = parseFloat(localUser.balance) || 0;
-      const balanceInUSD = balance * BRD_TO_USD;
-      const transactions = localUser.transactions || [];
-      
-      resultDiv.innerHTML = `
-        <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
-            <div>
-              <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET FOUND</span>
-              <span class="badge" style="background: #f7931a; color: #fff; margin-left: 10px;">
-                <i class="fas fa-database"></i> Local Storage
-              </span>
-            </div>
-            <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
-              <i class="fas fa-external-link-alt"></i> View on Explorer
-            </button>
-          </div>
-          <div class="metric-row"><span class="metric-label">👤 Username:</span><span class="metric-value">${localUser.username}</span></div>
-          <div class="metric-row"><span class="metric-label">📍 Address:</span><span class="metric-value" style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
-          <div class="metric-row"><span class="metric-label">💰 Balance (BRD):</span><span class="metric-value" style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
-          <div class="metric-row"><span class="metric-label">💵 Balance (USD):</span><span class="metric-value" style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
-          <div class="metric-row"><span class="metric-label">📊 Exchange Rate:</span><span class="metric-value">1 BRD = $${BRD_TO_USD} USD</span></div>
-          <div class="metric-row"><span class="metric-label">📝 Transactions:</span><span class="metric-value">${transactions.length}</span></div>
-          ${localUser.activeStake ? `
-            <div class="metric-row"><span class="metric-label">🔒 Active Stake:</span><span class="metric-value" style="color: #ffc800;">${formatNumber(localUser.activeStake.amount)} BRD (${localUser.activeStake.name})</span></div>
-          ` : ''}
-          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,255,100,0.2); display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;">
-              <i class="fas fa-copy"></i> Copy
-            </button>
-            <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;">
-              <i class="fas fa-paper-plane"></i> Send to this wallet
-            </button>
-          </div>
-        </div>
-      `;
-      showStatus(`✅ Wallet found locally`, 'searchStatus', 'success');
-    } else {
-      resultDiv.innerHTML = `
-        <div style="background: rgba(255,200,0,0.1); border: 2px solid #ffc800; border-radius: 20px; padding: 20px; text-align: center;">
-          <div style="font-size: 48px;">⚠️</div>
-          <h3 style="color: #ffc800;">Wallet Not Found</h3>
-          <p>This address was not found in the local database.</p>
-          <p style="font-size: 12px; margin-top: 10px; color: #888;">💡 Make sure the address starts with "Br" and is correct.</p>
-          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">
-            🌐 Open Bradichain Explorer
-          </button>
-        </div>
-      `;
-      showStatus(`❌ Wallet not found locally`, 'searchStatus', 'error');
-    }
-  }
-  
-  function openBradichainExplorer(address) {
-    const url = `${BRADICHAIN_URL}/address/${address}`;
-    window.open(url, '_blank');
-    showStatus(`🔍 Opening ${url}`, 'searchStatus', 'info');
-  }
+  async function consultarWallet() {
+  const address = document.getElementById('searchWalletAddress').value.trim();
+  const resultDiv = document.getElementById('searchResult');
 
-  function lookupOnBradichain() {
-  if (!currentUser || !currentUser.walletAddress) {
-    showStatus('📌 No wallet loaded', 'searchStatus', 'error');
+  if (!address) {
+    showStatus('📌 Digite um endereço', 'searchStatus', 'error');
     return;
   }
-  window.open(`${BRADICHAIN_URL}/address/${currentUser.walletAddress}`, '_blank');
-}
+  if (!address.startsWith('Br') || address.length !== 40) {
+    showStatus('⚠️ Endereço inválido (Br + 38 caracteres)', 'searchStatus', 'error');
+    return;
+  }
 
-  function copyToClipboardManual(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        showStatus(`📋 Address copied!`, 'searchStatus', 'success');
-      }).catch(() => {
-        fallbackCopy(text);
-      });
-    } else {
-      fallbackCopy(text);
-    }
+  resultDiv.innerHTML = '<div style="text-align: center; color: #00ccff;">🔍 Consultando servidor...</div>';
+  resultDiv.classList.add('show');
+  showStatus('⏳ Consultando...', 'searchStatus', 'info');
+
+  try {
+    const balRes = await apiFetch(`/api/v1/wallet/balance/${address}`);
+    const balance = parseFloat(balRes.data?.balance) || 0;
+    const balanceInUSD = balance * BRD_TO_USD;
+
+    resultDiv.innerHTML = `
+      <div style="background: linear-gradient(135deg, rgba(0,255,100,0.1), rgba(0,200,255,0.05)); border: 2px solid #00ff66; border-radius: 20px; padding: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+          <span class="badge" style="background: #00ff66; color: #000;">✅ WALLET ENCONTRADA</span>
+          <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="padding: 8px 16px; font-size: 12px;">
+            <i class="fas fa-external-link-alt"></i> Ver no Explorer
+          </button>
+        </div>
+        <div class="metric-row"><span>📍 Endereço:</span><span style="font-family: monospace; font-size: 12px; word-break: break-all;">${address}</span></div>
+        <div class="metric-row"><span>💰 Saldo (BRD):</span><span style="color: #00ff66; font-size: 1.2rem; font-weight: bold;">${formatNumber(balance)} BRD</span></div>
+        <div class="metric-row"><span>💵 Saldo (USD):</span><span style="color: #ffaa66;">$${formatNumber(balanceInUSD)} USD</span></div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="copyToClipboardManual('${address}')" class="btn btn-outline" style="padding: 8px 16px; font-size: 12px;">
+            <i class="fas fa-copy"></i> Copiar
+          </button>
+          <button onclick="document.getElementById('sendTo').value='${address}'; document.getElementById('sendAmount').focus();" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;">
+            <i class="fas fa-paper-plane"></i> Enviar para esta carteira
+          </button>
+        </div>
+      </div>
+    `;
+    showStatus(`✅ Carteira consultada`, 'searchStatus', 'success');
+  } catch (err) {
+    resultDiv.innerHTML = `
+      <div style="background: rgba(255,200,0,0.1); border: 2px solid #ffc800; border-radius: 20px; padding: 20px; text-align: center;">
+        <div style="font-size: 48px;">⚠️</div>
+        <h3 style="color: #ffc800;">Não encontrada</h3>
+        <p>${err.message}</p>
+        <button onclick="openBradichainExplorer('${address}')" class="btn btn-bradichain" style="margin-top: 15px;">
+          🌐 Abrir Explorer
+        </button>
+      </div>
+    `;
+    showStatus(`❌ ${err.message}`, 'searchStatus', 'error');
   }
-  
-  function fallbackCopy(text) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.opacity = '0';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      showStatus(`📋 Address copied!`, 'searchStatus', 'success');
-    } catch (e) {
-      showStatus(`❌ Copy failed`, 'searchStatus', 'error');
-    }
-    document.body.removeChild(textArea);
-  }
+}
   
   // ============================================================
   // STAKING
@@ -1523,12 +1483,7 @@ if (regBtn) {
         </tr>
       `;
       }).join('');
-    
-    // Lista de wallets para o select
-    const walletOptions = users.map(u => 
-      `<option value="${u.walletAddress}">${u.username} (${u.walletAddress.substring(0, 16)}...) - ${formatNumber(u.balance)} BRD</option>`
-    ).join('');
-    
+     
     const html = `
       <div class="header">
         <div class="logo">
@@ -1538,7 +1493,7 @@ if (regBtn) {
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <span><i class="fas fa-user"></i> ${currentUser.username}</span>
           <span class="storage-indicator" style="background: rgba(0,255,136,0.1); border-color: rgba(0,255,136,0.3); color: #00ff88;"><i class="fas fa-server"></i> Conectado</span>
-          <span style="font-size: 10px; color: #00ff88;">✅ ${users.length} users</span>
+          <span style="font-size: 10px; color: #00ff88;">✅ API conectada</span>
           <button id="logoutBtn" class="btn btn-outline" style="padding: 8px 20px;">🚪 Logout</button>
         </div>
       </div>
@@ -1708,16 +1663,7 @@ if (regBtn) {
               <span style="color: #ffd700; font-weight: bold;">SEND BRD</span>
               <span style="font-size: 10px; color: #00ccff; margin-left: auto;"><i class="fas fa-server"></i> API</span>
             </div>
-            
-            <div style="margin-bottom: 12px;">
-              <label style="font-size: 10px; color: #a855f7;">OR SELECT FROM LIST:</label>
-              <select id="walletSelect" class="wallet-select" onchange="document.getElementById('sendTo').value=this.value;">
-                <option value="">-- Select a wallet --</option>
-                ${walletOptions}
-                <option value="${currentUser.walletAddress}">👤 My Wallet (${currentUser.walletAddress.substring(0, 16)}...)</option>
-              </select>
-            </div>
-            
+                  
             <input type="text" id="sendTo" class="input" placeholder="📍 Destination address (Br...)" style="margin-bottom: 12px;">
             
             <div class="quick-amount">
